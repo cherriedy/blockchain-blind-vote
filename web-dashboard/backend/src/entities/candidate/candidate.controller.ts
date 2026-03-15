@@ -1,0 +1,153 @@
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Delete,
+  Body,
+  Param,
+  UseGuards,
+  HttpCode,
+  HttpStatus,
+} from '@nestjs/common';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiParam,
+  ApiBody,
+} from '@nestjs/swagger';
+import { CandidateService } from './candidate.service';
+import {
+  CreateCandidateRequestDto,
+  CandidateIdParamDto,
+  UpdateCandidateRequestDto,
+  CandidateResponseDto,
+} from './dto';
+import { PrivilegedAuthGuard } from '../../shared/gurads';
+import { Public } from '../../shared/decorations';
+import { toCandidateResponseDto, toCandidateResponseDtos } from './dto';
+
+@ApiTags('Candidates')
+@Controller('candidates')
+@UseGuards(PrivilegedAuthGuard)
+export class CandidateController {
+  constructor(private readonly candidateService: CandidateService) {}
+
+  // ────────────────────────────────
+  // Public Endpoints
+  // ────────────────────────────────
+
+  // POST: /candidates/register
+  @Post('register')
+  @Public()
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({
+    summary: 'Register as a candidate',
+    description:
+      'Allows an eligible voter to create their own candidate profile. ' +
+      'The provided walletAddress and studentId must match an existing active Voter record. ' +
+      'If no matching voter is found, the request is rejected with a message directing the user to register as a voter first.',
+  })
+  @ApiBody({ type: CreateCandidateRequestDto })
+  @ApiResponse({
+    status: 201,
+    type: CandidateResponseDto,
+    description: 'Candidate profile created successfully.',
+  })
+  @ApiResponse({
+    status: 404,
+    description:
+      'No eligible voter found with the provided walletAddress and studentId.',
+  })
+  @ApiResponse({ status: 403, description: 'Voter account is not active.' })
+  @ApiResponse({
+    status: 409,
+    description: 'Candidate profile already exists for this wallet address.',
+  })
+  async registerAsCandidate(
+    @Body() body: CreateCandidateRequestDto,
+  ): Promise<CandidateResponseDto> {
+    const candidate = await this.candidateService.registerAsCandidate(body);
+    return toCandidateResponseDto(candidate);
+  }
+
+  // ────────────────────────────────
+  // Admin-only Endpoints
+  // ────────────────────────────────
+
+  @Get()
+  @ApiOperation({ summary: 'Get all candidates' })
+  @ApiResponse({
+    status: 200,
+    description: 'List of candidates.',
+    type: CandidateResponseDto,
+    isArray: true,
+  })
+  async getAllCandidates(): Promise<CandidateResponseDto[]> {
+    const candidates = await this.candidateService.getAll();
+    return toCandidateResponseDtos(candidates);
+  }
+
+  @Get(':id')
+  @ApiOperation({ summary: 'Get candidate by ID' })
+  @ApiParam({ name: 'id', type: String })
+  @ApiResponse({
+    status: 200,
+    description: 'Candidate details.',
+    type: CandidateResponseDto,
+  })
+  async getCandidate(
+    @Param() param: CandidateIdParamDto,
+  ): Promise<CandidateResponseDto | null> {
+    const candidate = await this.candidateService.getById(param.id);
+    return candidate ? toCandidateResponseDto(candidate) : null;
+  }
+
+  @Post()
+  @ApiOperation({ summary: 'Create a new candidate (admin)' })
+  @ApiBody({ type: CreateCandidateRequestDto })
+  @ApiResponse({
+    status: 201,
+    description: 'Candidate created.',
+    type: CandidateResponseDto,
+  })
+  async createCandidate(
+    @Body() body: CreateCandidateRequestDto,
+  ): Promise<CandidateResponseDto> {
+    const candidate = await this.candidateService.create(body);
+    return toCandidateResponseDto(candidate);
+  }
+
+  @Put(':id')
+  @ApiOperation({ summary: 'Update a candidate' })
+  @ApiParam({ name: 'id', type: String })
+  @ApiBody({ type: UpdateCandidateRequestDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Candidate updated.',
+    type: CandidateResponseDto,
+  })
+  async updateCandidate(
+    @Param() param: CandidateIdParamDto,
+    @Body() body: UpdateCandidateRequestDto,
+  ): Promise<CandidateResponseDto> {
+    const candidate = await this.candidateService.update(param.id, body);
+    return toCandidateResponseDto(candidate);
+  }
+
+  @Delete(':id')
+  @ApiOperation({ summary: 'Delete a candidate' })
+  @ApiParam({ name: 'id', type: String })
+  @ApiResponse({
+    status: 200,
+    description: 'Candidate deleted.',
+    type: CandidateResponseDto,
+  })
+  async deleteCandidate(
+    @Param() param: CandidateIdParamDto,
+  ): Promise<CandidateResponseDto> {
+    const candidate = await this.candidateService.delete(param.id);
+    return toCandidateResponseDto(candidate);
+  }
+}

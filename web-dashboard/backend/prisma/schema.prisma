@@ -1,0 +1,96 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("MONGODB_URI")
+}
+
+model Voter {
+  id            String       @id @default(auto()) @map("_id") @db.ObjectId
+  studentId     String       @unique
+  walletAddress String       @unique
+  isActive      Boolean      @default(true)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  eventVoters   EventVoter[]
+}
+
+model Candidate {
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  studentId     String   @unique
+  avatarUrl     String?
+  name          String
+  bio           String?
+  walletAddress String   @unique
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model Election {
+  id                      String   @id @default(auto()) @map("_id") @db.ObjectId
+  name                    String   @unique
+  description             String?
+  status                  String   @default("pending")
+  visibility              String   @default("public")
+  isAutomatic             Boolean  @default(false)
+  startAt                 Float?
+  endAt                   Float?
+  candidateIds            String[] @db.ObjectId
+  allowSelfNomination     Boolean  @default(false)
+  selfNominatedCandidates String[]
+  votes                   Json     @default("{}")
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+}
+
+model Poll {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  name        String   @unique
+  description String?
+  status      String   @default("pending")
+  visibility  String   @default("public")
+  isAutomatic Boolean  @default(false)
+  startAt     Float?
+  endAt       Float?
+  question    String
+  options     String[]
+  votes       Int[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model BallotRequest {
+  id            String @id @default(auto()) @map("_id") @db.ObjectId
+  studentId     String
+  walletAddress String
+
+  voteType String
+  voteId   String
+
+  walletChallengeNonce     String?
+  walletChallengeExpiresAt DateTime?
+  isChallenged             Boolean   @default(false)
+
+  // Prevent double voting by marking the ballot as signed once the challenge is completed
+  isSigned Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([studentId, walletAddress, voteType, voteId])
+}
+
+model EventVoter {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  voterId   String   @db.ObjectId
+  voter     Voter    @relation(fields: [voterId], references: [id])
+  voteType  String
+  voteId    String
+  canVote   Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([voteType, voteId, voterId])
+}

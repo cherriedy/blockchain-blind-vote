@@ -1,0 +1,90 @@
+services:
+  # ── MongoDB (single-node Replica Set) ──────────────────────────────────────
+  mongodb:
+    image: mongo:7
+    container_name: binhchon-mongodb
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    command: ["--replSet", "rs0", "--bind_ip_all"]
+    volumes:
+      - mongo_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks:
+      - binhchon-network
+
+  # ── Khởi tạo Replica Set (chạy một lần) ────────────────────────────────────
+  mongo-init:
+    image: mongo:7
+    container_name: binhchon-mongo-init
+    restart: "no"
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    entrypoint: ["bash", "/init/mongo-init-replica.sh"]
+    volumes:
+      - ./docker:/init:ro
+    networks:
+      - binhchon-network
+
+  # ── Backend (NestJS) ────────────────────────────────────────────────────────
+  backend:
+    build:
+      context: ./web-dashboard/backend
+      dockerfile: Dockerfile
+    container_name: binhchon-backend
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    env_file:
+      - ./web-dashboard/backend/.env
+    depends_on:
+      mongo-init:
+        condition: service_completed_successfully
+    networks:
+      - binhchon-network
+
+  # ── Frontend (Next.js) ──────────────────────────────────────────────────────
+  frontend:
+    build:
+      context: ./web-dashboard/frontend
+      dockerfile: Dockerfile
+    container_name: binhchon-frontend
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    env_file:
+      - ./web-dashboard/frontend/.env
+    depends_on:
+      - backend
+    networks:
+      - binhchon-network
+
+  # ── Blockchain / Hardhat (tùy chọn – deploy contract) ──────────────────────
+  # Chạy: docker compose run --rm blockchain npx hardhat run scripts/deploy.js --network amoy
+  blockchain:
+    build:
+      context: ./blockchain
+      dockerfile: Dockerfile
+    container_name: binhchon-blockchain
+    env_file:
+      - ./blockchain/.env
+    profiles:
+      - deploy
+    networks:
+      - binhchon-network
+
+volumes:
+  mongo_data:
+    name: binhchon-mongo-data
+
+networks:
+  binhchon-network:
+    name: binhchon-network
+    driver: bridge
+
