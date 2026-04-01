@@ -172,7 +172,7 @@ Cập nhật `web-dashboard/backend/.env`:
 
 ```env
 PORT=5000
-MONGODB_URI=mongodb://127.0.0.1:27017/voting_db?replicaSet=rs0&directConnection=true
+DATABASE_URL=mongodb://127.0.0.1:27017/voting_db?replicaSet=rs0&directConnection=true
 FRONTEND_URL=http://localhost:3000
 RPC_URL=https://rpc-amoy.polygon.technology
 CONTRACT_ADDRESS=<contract_address>
@@ -273,7 +273,7 @@ Sau khi deploy, cập nhật các giá trị sau trong `.env`:
 | `CONTRACT_ADDRESS`             | Backend  | Địa chỉ Smart Contract đã deploy                 |
 | `RPC_URL`                      | Backend  | RPC endpoint của blockchain network              |
 | `RSA_BLIND_PRIVATE_KEY`        | Backend  | RSA private key cho Blind Signature (PEM)        |
-| `MONGODB_URI`                  | Backend  | Chuỗi kết nối MongoDB (tự động set trong Docker) |
+| `DATABASE_URL`                  | Backend  | Chuỗi kết nối MongoDB (tự động set trong Docker) |
 
 [//]: # (| `NEXT_PUBLIC_BACKEND_URL`      | Frontend | URL của Backend API                              |)
 

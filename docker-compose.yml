@@ -33,37 +33,37 @@ services:
       - binhchon-network
 
   # ── Backend (NestJS) ────────────────────────────────────────────────────────
-  backend:
-    build:
-      context: ./web-dashboard/backend
-      dockerfile: Dockerfile
-    container_name: binhchon-backend
-    restart: unless-stopped
-    ports:
-      - "5000:5000"
-    env_file:
-      - ./web-dashboard/backend/.env
-    depends_on:
-      mongo-init:
-        condition: service_completed_successfully
-    networks:
-      - binhchon-network
+  # backend:
+  #   build:
+  #     context: ./web-dashboard/backend
+  #     dockerfile: Dockerfile
+  #   container_name: binhchon-backend
+  #   restart: unless-stopped
+  #   ports:
+  #     - "5000:5000"
+  #   env_file:
+  #     - ./web-dashboard/backend/.env
+  #   depends_on:
+  #     mongo-init:
+  #       condition: service_completed_successfully
+  #   networks:
+  #     - binhchon-network
 
   # ── Frontend (Next.js) ──────────────────────────────────────────────────────
-  frontend:
-    build:
-      context: ./web-dashboard/frontend
-      dockerfile: Dockerfile
-    container_name: binhchon-frontend
-    restart: unless-stopped
-    ports:
-      - "3000:3000"
-    env_file:
-      - ./web-dashboard/frontend/.env
-    depends_on:
-      - backend
-    networks:
-      - binhchon-network
+  # frontend:
+  #   build:
+  #     context: ./web-dashboard/frontend
+  #     dockerfile: Dockerfile
+  #   container_name: binhchon-frontend
+  #   restart: unless-stopped
+  #   ports:
+  #     - "3000:3000"
+  #   env_file:
+  #     - ./web-dashboard/frontend/.env
+  #   depends_on:
+  #     - backend
+  #   networks:
+  #     - binhchon-network
 
   # ── Blockchain / Hardhat (tùy chọn – deploy contract) ──────────────────────
   # Chạy: docker compose run --rm blockchain npx hardhat run scripts/deploy.js --network amoy
