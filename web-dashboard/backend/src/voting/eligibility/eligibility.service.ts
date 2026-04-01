@@ -1,7 +1,6 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { randomBytes } from 'crypto';
 import { ethers } from 'ethers';
-import { PrismaService } from '../../prisma';
 import { VotingContextService } from '../context';
 import { VotingEventType, VotingEventVisibility } from '../../enums';
 import { BallotRequestService } from '../ballot-request/ballot-request.service';
@@ -10,14 +9,14 @@ import {
   toEligibilityAlreadyVerifiedResponseDto,
   CreateEligibilityChallengeResponseDto,
 } from './dto';
+import { prisma } from 'prisma/prisma.service';
 
 @Injectable()
 export class EligibilityService {
   constructor(
     private readonly ballotRequestService: BallotRequestService,
-    private readonly prisma: PrismaService,
     private readonly votingContextService: VotingContextService,
-  ) {}
+  ) { }
 
   /**
    *
@@ -41,6 +40,18 @@ export class EligibilityService {
       this.votingContextService.normalizeStudentId(studentId);
     const normalizedWallet =
       this.votingContextService.normalizeWalletAddress(walletAddress);
+
+    const voter = await prisma.voter.findFirst({
+      where: {
+        studentId: normalizedStudentId,
+        walletAddress: normalizedWallet,
+        isActive: true,
+      },
+    });
+
+    if (!voter) {
+      throw new BadRequestException('Voter not found or inactive');
+    }
 
     await this.assertVoterAssignedToPrivateEvent(
       normalizedStudentId,
@@ -135,7 +146,7 @@ export class EligibilityService {
       throw new UnauthorizedException('Wallet signature is invalid');
     }
 
-    await this.prisma.ballotRequest.update({
+    await prisma.ballotRequest.update({
       where: { id: ballotRequest.id },
       data: {
         isChallenged: true,
@@ -160,7 +171,7 @@ export class EligibilityService {
     voteId: string,
   ): Promise<VotingEventVisibility> {
     if (voteType === VotingEventType.ELECTION) {
-      const ev = await this.prisma.election.findUnique({
+      const ev = await prisma.election.findUnique({
         where: { id: voteId },
         select: { visibility: true },
       });
@@ -169,7 +180,7 @@ export class EligibilityService {
         VotingEventVisibility.PRIVATE
       );
     } else if (voteType === VotingEventType.POLL) {
-      const ev = await this.prisma.poll.findUnique({
+      const ev = await prisma.poll.findUnique({
         where: { id: voteId },
         select: { visibility: true },
       });
@@ -202,7 +213,7 @@ export class EligibilityService {
     // If the event is public, we don't need to check for voter assignment
     if (visibility === VotingEventVisibility.PUBLIC) return;
 
-    const voter = await this.prisma.voter.findFirst({
+    const voter = await prisma.voter.findFirst({
       where: { studentId, walletAddress, isActive: true },
     });
     if (!voter) {
@@ -211,7 +222,7 @@ export class EligibilityService {
       );
     }
 
-    const assigned = await this.prisma.eventVoter.findFirst({
+    const assigned = await prisma.eventVoter.findFirst({
       where: { voterId: voter.id, voteType, voteId, canVote: true },
     });
     if (!assigned) {

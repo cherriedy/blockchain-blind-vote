@@ -7,8 +7,8 @@ import {
 import { createPrivateKey, generateKeyPairSync, KeyObject } from 'crypto';
 import { modPow } from 'bigint-mod-arith';
 import { RsaKeyComponent, VotingRsaPublicKey } from './interfaces';
-import { PrismaService } from '../../prisma';
 import { VotingContextService } from '../context';
+import { prisma } from 'prisma/prisma.service';
 
 @Injectable()
 export class BlindRsaService {
@@ -28,7 +28,6 @@ export class BlindRsaService {
   private readonly modulusSize: number;
 
   constructor(
-    private readonly prisma: PrismaService,
     private readonly votingContextService: VotingContextService,
   ) {
     const { n, e, d, size } = this.loadOrGenerateKeyPair();
@@ -187,7 +186,7 @@ export class BlindRsaService {
     }
 
     // Check eligibility challenge status before issuing blind signature
-    const ballotRequest = await this.prisma.ballotRequest.findFirst({
+    const ballotRequest = await prisma.ballotRequest.findFirst({
       where: {
         studentId,
         voteType,
@@ -214,7 +213,7 @@ export class BlindRsaService {
       '0x' + blindSigBigInt.toString(16).padStart(this.modulusSize / 4, '0');
 
     // Mark as signed so this voter cannot request another blind signature
-    await this.prisma.ballotRequest.update({
+    await prisma.ballotRequest.update({
       where: { id: ballotRequest.id },
       data: { isSigned: true },
     });

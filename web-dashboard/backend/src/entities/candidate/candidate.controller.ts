@@ -9,6 +9,7 @@ import {
   UseGuards,
   HttpCode,
   HttpStatus,
+  Query,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -24,15 +25,15 @@ import {
   UpdateCandidateRequestDto,
   CandidateResponseDto,
 } from './dto';
-import { PrivilegedAuthGuard } from '../../shared/gurads';
-import { Public } from '../../shared/decorations';
+import { AdminAuthGuard, RolesGuard } from '../../shared/guards';
+import { Public, Roles } from '../../shared/decorations';
 import { toCandidateResponseDto, toCandidateResponseDtos } from './dto';
 
 @ApiTags('Candidates')
 @Controller('candidates')
-@UseGuards(PrivilegedAuthGuard)
+
 export class CandidateController {
-  constructor(private readonly candidateService: CandidateService) {}
+  constructor(private readonly candidateService: CandidateService) { }
 
   // ────────────────────────────────
   // Public Endpoints
@@ -72,10 +73,7 @@ export class CandidateController {
     return toCandidateResponseDto(candidate);
   }
 
-  // ────────────────────────────────
-  // Admin-only Endpoints
-  // ────────────────────────────────
-
+  // ADMIN ROLE
   @Get()
   @ApiOperation({ summary: 'Get all candidates' })
   @ApiResponse({
@@ -84,8 +82,8 @@ export class CandidateController {
     type: CandidateResponseDto,
     isArray: true,
   })
-  async getAllCandidates(): Promise<CandidateResponseDto[]> {
-    const candidates = await this.candidateService.getAll();
+  async getAllCandidates(@Query('search') search?: string): Promise<CandidateResponseDto[]> {
+    const candidates = await this.candidateService.getAll(search);
     return toCandidateResponseDtos(candidates);
   }
 

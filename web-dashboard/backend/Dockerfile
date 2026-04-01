@@ -1,5 +1,8 @@
 # ── Stage 1: Build ────────────────────────────────────────────────────────────
-FROM node:20-alpine AS builder
+FROM node:20-slim AS builder
+
+# Install openssl for the generator
+RUN apt-get update && apt-get install -y openssl
 
 WORKDIR /app
 
@@ -11,22 +14,19 @@ RUN npx prisma generate
 RUN npm run build
 
 # ── Stage 2: Production ───────────────────────────────────────────────────────
-FROM node:20-alpine AS production
+FROM node:20-slim AS production
+
+# CRITICAL: Install openssl in the final runtime image
+RUN apt-get update && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
-
 ENV NODE_ENV=production
 
-COPY package*.json ./
-RUN npm ci --omit=dev
-
-# Copy Prisma generated client from builder
-COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
-COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
+COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/dist ./dist
 COPY prisma ./prisma
 
 EXPOSE 5000
 
-CMD ["node", "dist/main"]
+CMD ["node", "dist/src/main.js"]
 

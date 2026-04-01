@@ -1,15 +1,20 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
-import { PrismaModule } from './prisma';
 import { VotingModule } from './voting';
-import { EntitiesModule } from './entities';
+import { AdminModule, EntitiesModule } from './entities';
+import { APP_GUARD } from '@nestjs/core';
+import { AdminAuthGuard, RolesGuard } from './shared/guards';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
-    PrismaModule,
     EntitiesModule,
     VotingModule,
+    AdminModule
+  ],
+  providers: [
+    { provide: APP_GUARD, useClass: AdminAuthGuard },
+    { provide: APP_GUARD, useClass: RolesGuard },
   ],
 })
-export class AppModule {}
+export class AppModule { }

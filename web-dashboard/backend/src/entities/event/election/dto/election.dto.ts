@@ -2,7 +2,9 @@ import {
   ArrayNotEmpty,
   IsArray,
   IsBoolean,
+  IsIn,
   IsMongoId,
+  IsNotEmpty,
   IsObject,
   IsOptional,
   IsString,
@@ -11,6 +13,8 @@ import { PartialType } from '@nestjs/mapped-types';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { CreateEventRequestDto } from '../../event.dto';
 import { VotingEventType } from '../../../../enums';
+import { AdminResponseDto } from 'src/entities/admin';
+import { VoterResponseDto } from 'src/entities/voter';
 
 /** DTO for creating an election. */
 export class CreateElectionRequestDto extends CreateEventRequestDto {
@@ -33,17 +37,12 @@ export class CreateElectionRequestDto extends CreateEventRequestDto {
   @IsBoolean()
   @IsOptional()
   allowSelfNomination?: boolean;
+}
 
-  // @ApiPropertyOptional({
-  //   description: 'Array of self-nominated candidate IDs (MongoDB ObjectIds).',
-  //   example: ['65f1c2a3b4d5e6f7a8b9c0d3'],
-  //   type: [String],
-  // })
-  // @IsArray()
-  // @IsOptional()
-  // @IsString({ each: true })
-  // selfNominatedCandidates?: string[];
-
+/** DTO for updating an election (all fields optional). */
+export class UpdateElectionRequestDto extends PartialType(
+  CreateElectionRequestDto,
+) {
   @ApiPropertyOptional({
     description:
       'A record of votes, where the key is the candidateId and the value is the vote count.',
@@ -58,11 +57,6 @@ export class CreateElectionRequestDto extends CreateEventRequestDto {
   @IsOptional()
   votes?: Record<string, number>;
 }
-
-/** DTO for updating an election (all fields optional). */
-export class UpdateElectionRequestDto extends PartialType(
-  CreateElectionRequestDto,
-) {}
 
 /** DTO for validating election id param (MongoId). */
 export class ElectionIdParamDto {
@@ -90,6 +84,89 @@ export class SelfNominateDto {
   })
   @IsString()
   studentId: string;
+
+  @ApiPropertyOptional({
+    description:
+      'An optional introduction or statement from the candidate as part of their self-nomination.',
+    example: 'I am passionate about serving our student community and have experience in leadership roles.',
+  })
+  @IsString()
+  @IsOptional()
+  introduction?: string;
+}
+
+export class EventVoterResponseDto {
+  @ApiProperty({ example: '6800a1b2c3d4e5f6a7b8c9d0' })
+  id: string;
+
+  @ApiProperty({ example: '6800a1b2c3d4e5f6a7b8c9d1' })
+  voterId: string;
+
+  @ApiProperty({ enum: VotingEventType, example: VotingEventType.ELECTION })
+  voteType: string;
+
+  @ApiProperty({ example: '6800a1b2c3d4e5f6a7b8c9d2' })
+  voteId: string;
+
+  @ApiProperty({ example: true })
+  canVote: boolean;
+
+  @ApiProperty({ example: '2026-03-15T08:00:00.000Z' })
+  createdAt: Date;
+
+  @ApiProperty({ example: '2026-03-15T08:30:00.000Z' })
+  updatedAt: Date;
+
+  voter?: VoterResponseDto;
+}
+
+export class ElectionCandidateResponseDto {
+  @ApiProperty({ example: '65f1c2a3b4d5e6f7a8b9c0d2' })
+  id: string;
+
+  @ApiProperty({ example: 'SV2021001' })
+  studentId: string;
+
+  @ApiProperty({ example: 'Nguyen Van A' })
+  name: string;
+
+  @ApiPropertyOptional({
+    example: 'A senior student passionate about campus activities.',
+  })
+  bio?: string | null;
+
+  @ApiPropertyOptional({ example: 'https://example.com/avatar.jpg' })
+  avatarUrl?: string | null;
+
+  @ApiProperty({ example: '0x1234567890abcdef1234567890abcdef12345678' })
+  walletAddress: string;
+
+  @ApiProperty({ example: '2026-03-15T08:00:00.000Z' })
+  createdAt: Date;
+
+  @ApiProperty({ example: '2026-03-15T08:30:00.000Z' })
+  updatedAt: Date;
+}
+
+export class SelfNominationResponseDto {
+  @ApiProperty({ example: '65f1c2a3b4d5e6f7a8b9c0d1' })
+  id: string;
+  @ApiProperty({ example: '65f1c2a3b4d5e6f7a8b9c0d2' })
+  electionId: string;
+  @ApiProperty({ example: '65f1c2a3b4d5e6f7a8b9c0d3' })
+  candidateId: string;
+  @ApiPropertyOptional({
+    example: 'A passionate student eager to serve the campus community.',
+  })
+  introduction?: string | null;
+  @ApiProperty({ example: 'PENDING' })
+  status: string;
+  @ApiPropertyOptional({ example: 'Admin notes if rejected.' })
+  adminNotes?: string | null;
+  @ApiProperty({ example: '2026-03-15T08:00:00.000Z' })
+  createdAt: Date;
+  @ApiProperty({ example: '2026-03-15T08:30:00.000Z' })
+  updatedAt: Date;
 }
 
 export class ElectionResponseDto {
@@ -125,9 +202,6 @@ export class ElectionResponseDto {
   @ApiProperty({ example: true })
   allowSelfNomination: boolean;
 
-  @ApiProperty({ type: [String] })
-  selfNominatedCandidates: string[];
-
   @ApiProperty({
     type: 'object',
     additionalProperties: { type: 'number' },
@@ -141,30 +215,15 @@ export class ElectionResponseDto {
   updatedAt: Date;
 }
 
-export class ElectionCandidateResponseDto {
-  @ApiProperty({ example: '65f1c2a3b4d5e6f7a8b9c0d2' })
+export class EventAdminResponseDto {
+  @ApiProperty({ example: '6800a1b2c3d4e5f6a7b8c9d0' })
   id: string;
-
-  @ApiProperty({ example: 'SV2021001' })
-  studentId: string;
-
-  @ApiProperty({ example: 'Nguyen Van A' })
-  name: string;
-
-  @ApiPropertyOptional({
-    example: 'A senior student passionate about campus activities.',
-  })
-  bio?: string | null;
-
-  @ApiPropertyOptional({ example: 'https://example.com/avatar.jpg' })
-  avatarUrl?: string | null;
-
-  @ApiProperty({ example: '0x1234567890abcdef1234567890abcdef12345678' })
-  walletAddress: string;
-
+  @ApiProperty({ example: '6800a1b2c3d4e5f6a7b8c9d1' })
+  adminId: string
+  @ApiProperty({ example: '6800a1b2c3d4e5f6a7b8c9d2' })
+  electionId: string
   @ApiProperty({ example: '2026-03-15T08:00:00.000Z' })
   createdAt: Date;
-
   @ApiProperty({ example: '2026-03-15T08:30:00.000Z' })
   updatedAt: Date;
 }
@@ -177,30 +236,70 @@ export class ElectionCandidatesResponseDto {
   selfNominated: ElectionCandidateResponseDto[];
 }
 
-export class EventVoterResponseDto {
-  @ApiProperty({ example: '6800a1b2c3d4e5f6a7b8c9d0' })
-  id: string;
-
-  @ApiProperty({ example: '6800a1b2c3d4e5f6a7b8c9d1' })
-  voterId: string;
-
-  @ApiProperty({ enum: VotingEventType, example: VotingEventType.ELECTION })
-  voteType: string;
-
-  @ApiProperty({ example: '6800a1b2c3d4e5f6a7b8c9d2' })
-  voteId: string;
-
-  @ApiProperty({ example: true })
-  canVote: boolean;
-
-  @ApiProperty({ example: '2026-03-15T08:00:00.000Z' })
-  createdAt: Date;
-
-  @ApiProperty({ example: '2026-03-15T08:30:00.000Z' })
-  updatedAt: Date;
-}
-
 export class ActionMessageResponseDto {
   @ApiProperty({ example: 'Voter removed from election.' })
   message: string;
+}
+
+export class GetElectionsQueryDto {
+  @ApiPropertyOptional({
+    example: 'public',
+    description: 'Filter by visibility (public | private)',
+  })
+  @IsOptional()
+  @IsIn(['public', 'private'])
+  visibility?: string;
+}
+
+export class AssignAdminBodyDto {
+  @ApiProperty({
+    description: 'The admin document ID to assign to the election.',
+    example: '6800a1b2c3d4e5f6a7b8c9d0',
+  })
+  @IsArray()
+  @ArrayNotEmpty()
+  @IsString({ each: true })
+  adminIds: string[];
+}
+
+export class RemoveAdminBodyDto {
+  @ApiProperty({
+    description: 'The admin document ID to remove from the election.',
+    example: '6800a1b2c3d4e5f6a7b8c9d0',
+  })
+  @IsString()
+  @IsNotEmpty()
+  adminId: string;
+}
+
+export class AuditLogResponseDto {
+  @ApiProperty({ example: '65f1c2a3b4d5e6f7a8b9c0d1' })
+  id: string;
+
+  @ApiProperty({ example: '65f1c2a3b4d5e6f7a8b9c0d2', description: 'The ID of the admin who performed the action' })
+  adminId: string;
+
+  @ApiProperty({
+    example: 'APPROVE_SELF_NOMINATION',
+    enum: ['APPROVE_SELF_NOMINATION', 'REJECT_SELF_NOMINATION', 'ADD_VOTER', 'REMOVE_CANDIDATE']
+  })
+  action: string;
+
+  @ApiProperty({ example: 'ELECTION', enum: ['ELECTION', 'POLL'] })
+  targetType: string;
+
+  @ApiProperty({ example: '65f1c2a3b4d5e6f7a8b9c0d3', description: 'ID of the target election/poll' })
+  targetId: string;
+
+  @ApiProperty({
+    description: 'Dynamic JSON details of the action',
+    example: {
+      candidateId: '65f1c2a3b4d5e6f7a8b9c0d4',
+      reason: 'Does not meet requirements'
+    }
+  })
+  details: any;
+
+  @ApiProperty({ example: '2026-04-01T16:00:00.000Z' })
+  createdAt: Date;
 }

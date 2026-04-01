@@ -1,12 +1,16 @@
 import { Module } from '@nestjs/common';
 import { CandidateController } from './candidate.controller';
 import { CandidateService } from './candidate.service';
-import { PrivilegedAuthGuard } from '../../shared/gurads';
+import { AdminAuthGuard, RolesGuard } from '../../shared/guards';
 import { Reflector } from '@nestjs/core';
+import { AdminModule } from '../admin';
 
 @Module({
+  imports: [
+    AdminModule,
+  ],
   controllers: [CandidateController],
-  providers: [CandidateService, PrivilegedAuthGuard, Reflector],
+  providers: [CandidateService, AdminAuthGuard, RolesGuard, Reflector],
   exports: [CandidateService],
 })
-export class CandidateModule {}
+export class CandidateModule { }

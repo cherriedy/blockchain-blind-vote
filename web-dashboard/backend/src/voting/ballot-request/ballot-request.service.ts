@@ -1,11 +1,9 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { PrismaService } from '../../prisma';
 import { BallotRequest } from '@prisma/client';
+import { prisma } from 'prisma/prisma.service';
 
 @Injectable()
 export class BallotRequestService {
-  constructor(private readonly prisma: PrismaService) {}
-
   /**
    * Finds a single ballot request record based on the unique combination of studentId, walletAddress, voteType, and voteId.
    * @param studentId - The identifier of the student associated with the ballot request.
@@ -20,7 +18,7 @@ export class BallotRequestService {
     voteType: string,
     voteId: string,
   ): Promise<BallotRequest | null> {
-    return this.prisma.ballotRequest.findUnique({
+    return prisma.ballotRequest.findUnique({
       where: {
         studentId_walletAddress_voteType_voteId: {
           studentId,
@@ -53,7 +51,7 @@ export class BallotRequestService {
     }
 
     const { studentId, walletAddress, voteType, voteId, ...rest } = entity;
-    return this.prisma.ballotRequest.upsert({
+    return prisma.ballotRequest.upsert({
       where: {
         studentId_walletAddress_voteType_voteId: {
           studentId,

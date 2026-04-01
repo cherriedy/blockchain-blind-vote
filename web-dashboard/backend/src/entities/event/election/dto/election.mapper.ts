@@ -1,9 +1,11 @@
-import { Candidate, Election } from '@prisma/client';
+import { AuditLog, Candidate, Election, SelfNomination } from '@prisma/client';
 import {
   ElectionResponseDto,
   ElectionCandidateResponseDto,
   ElectionCandidatesResponseDto,
   ActionMessageResponseDto,
+  SelfNominationResponseDto,
+  AuditLogResponseDto,
 } from './election.dto';
 
 export const toElectionResponseDto = (
@@ -19,7 +21,6 @@ export const toElectionResponseDto = (
   endAt: election.endAt,
   candidateIds: election.candidateIds,
   allowSelfNomination: election.allowSelfNomination,
-  selfNominatedCandidates: election.selfNominatedCandidates,
   votes: election.votes as Record<string, number>,
   createdAt: election.createdAt,
   updatedAt: election.updatedAt,
@@ -54,4 +55,28 @@ export const toActionMessageResponseDto = (
   message: string,
 ): ActionMessageResponseDto => ({
   message,
+});
+
+export const toSelfNominationResponseDto = (
+  selfNomination: SelfNomination,
+): SelfNominationResponseDto => ({
+  id: selfNomination.id,
+  electionId: selfNomination.electionId,
+  candidateId: selfNomination.candidateId,
+  status: selfNomination.status,
+  introduction: selfNomination.introduction,
+  adminNotes: selfNomination.adminNotes,
+  createdAt: selfNomination.createdAt,
+  updatedAt: selfNomination.updatedAt,
+});
+
+
+export const toAuditLogResponseDto = (log: AuditLog): AuditLogResponseDto => ({
+  id: log.id,
+  adminId: log.adminId,
+  action: log.action,
+  targetType: log.targetType,
+  targetId: log.targetId,
+  details: log.details,
+  createdAt: log.createdAt,
 });

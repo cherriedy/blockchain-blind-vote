@@ -5,23 +5,31 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { PrismaService } from '../../prisma';
 import { VotingContextService } from '../../voting';
 import { CreateCandidateRequestDto, UpdateCandidateRequestDto } from './dto';
+import { prisma } from 'prisma/prisma.service';
 
 @Injectable()
 export class CandidateService {
   constructor(
-    private readonly prisma: PrismaService,
     private readonly votingContextService: VotingContextService,
-  ) {}
+  ) { }
 
-  async getAll() {
-    return this.prisma.candidate.findMany();
+  async getAll(search?: string) {
+    return prisma.candidate.findMany({
+      where: search
+        ? {
+          OR: [
+            { name: { contains: search, mode: 'insensitive' } },
+            { studentId: { contains: search, mode: 'insensitive' } },
+          ],
+        }
+        : {},
+    });
   }
 
   async getById(id: string) {
-    const candidate = await this.prisma.candidate.findUnique({ where: { id } });
+    const candidate = await prisma.candidate.findUnique({ where: { id } });
     if (!candidate) throw new NotFoundException('Candidate not found');
     return candidate;
   }
@@ -33,7 +41,7 @@ export class CandidateService {
     const normalizedStudentId = this.votingContextService.normalizeStudentId(
       data.studentId,
     );
-    return this.prisma.candidate.create({
+    return prisma.candidate.create({
       data: {
         studentId: normalizedStudentId,
         name: data.name,
@@ -56,7 +64,7 @@ export class CandidateService {
       this.votingContextService.normalizeWalletAddress(walletAddress);
     const normalizedStudentId =
       this.votingContextService.normalizeStudentId(studentId);
-    return this.prisma.candidate.findFirst({
+    return prisma.candidate.findFirst({
       where: {
         walletAddress: normalizedWallet,
         studentId: normalizedStudentId,
@@ -82,7 +90,7 @@ export class CandidateService {
     }
 
     // Verify the voter exists with matching walletAddress AND studentId
-    const voter = await this.prisma.voter.findFirst({
+    const voter = await prisma.voter.findFirst({
       where: {
         walletAddress: normalizedWallet,
         studentId: normalizedStudentId,
@@ -100,7 +108,7 @@ export class CandidateService {
     }
 
     // Prevent duplicate candidate profile
-    const existing = await this.prisma.candidate.findFirst({
+    const existing = await prisma.candidate.findFirst({
       where: { walletAddress: normalizedWallet },
     });
     if (existing) {
@@ -109,7 +117,7 @@ export class CandidateService {
       );
     }
 
-    return this.prisma.candidate.create({
+    return prisma.candidate.create({
       data: {
         studentId: normalizedStudentId,
         walletAddress: normalizedWallet,
@@ -121,10 +129,10 @@ export class CandidateService {
   }
 
   async update(id: string, data: UpdateCandidateRequestDto) {
-    return this.prisma.candidate.update({ where: { id }, data });
+    return prisma.candidate.update({ where: { id }, data });
   }
 
   async delete(id: string) {
-    return this.prisma.candidate.delete({ where: { id } });
+    return prisma.candidate.delete({ where: { id } });
   }
 }

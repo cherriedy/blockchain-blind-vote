@@ -7,14 +7,13 @@ import {
 } from '@nestjs/common';
 import { EventVoter } from '@prisma/client';
 import { VotingEventType } from '../../../enums';
-import { PrismaService } from '../../../prisma';
 import { VoterService } from '../../voter';
 import { UpsertEventVoterRequestDto } from './dto';
+import { prisma } from 'prisma/prisma.service';
 
 @Injectable()
 export class EventVoterService {
   constructor(
-    private readonly prisma: PrismaService,
     @Inject(forwardRef(() => VoterService))
     private readonly voterService: VoterService,
   ) {}
@@ -23,14 +22,14 @@ export class EventVoterService {
     voteType: VotingEventType,
     voteId: string,
   ): Promise<EventVoter | null> {
-    return this.prisma.eventVoter.findFirst({ where: { voteType, voteId } });
+    return prisma.eventVoter.findFirst({ where: { voteType, voteId } });
   }
 
   async findAllByEvent(
     voteType: VotingEventType,
     voteId: string,
   ): Promise<EventVoter[]> {
-    return this.prisma.eventVoter.findMany({ where: { voteType, voteId } });
+    return prisma.eventVoter.findMany({ where: { voteType, voteId }, include: { voter: true } });
   }
 
   async findEligibleEventVoter(
@@ -38,7 +37,7 @@ export class EventVoterService {
     voteId: string,
     voterId: string,
   ): Promise<EventVoter | null> {
-    return this.prisma.eventVoter.findFirst({
+    return prisma.eventVoter.findFirst({
       where: { voteType, voteId, voterId, canVote: true },
     });
   }
@@ -52,7 +51,7 @@ export class EventVoterService {
       );
     }
 
-    return this.prisma.eventVoter.upsert({
+    return prisma.eventVoter.upsert({
       where: { voteType_voteId_voterId: { voteType, voteId, voterId } },
       update: { canVote },
       create: { voteType, voteId, voterId, canVote },
@@ -67,7 +66,7 @@ export class EventVoterService {
     const voter = await this.voterService.findByStudentId(studentId);
     if (!voter) throw new NotFoundException('Voter not found');
 
-    await this.prisma.eventVoter.deleteMany({
+    await prisma.eventVoter.deleteMany({
       where: { voteType, voteId, voterId: voter.id },
     });
     return 'Event voter removed';
@@ -78,7 +77,7 @@ export class EventVoterService {
     voteType: VotingEventType,
     voteId: string,
   ): Promise<string> {
-    await this.prisma.eventVoter.deleteMany({
+    await prisma.eventVoter.deleteMany({
       where: { voteType, voteId, voterId },
     });
     return 'Event voter removed';

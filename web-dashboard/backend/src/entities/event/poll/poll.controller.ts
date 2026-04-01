@@ -28,21 +28,24 @@ import {
   toPollActionMessageResponseDto,
   PollResponseDto,
   PollActionMessageResponseDto,
+  GetPollsQueryDto,
 } from './dto';
-import { PrivilegedAuthGuard } from '../../../shared/gurads';
-import { EventVoterResponseDto } from '../election';
+import { AdminAuthGuard, PollPermissionGuard, RolesGuard } from '../../../shared/guards';
+import { AssignAdminBodyDto, EventVoterResponseDto } from '../election';
 import {
   AssignVoterBodyDto,
   RemoveVoterBodyDto,
   toEventVoterResponseDto,
   toEventVoterResponseDtos,
 } from '../voter';
-// import { PollVisibilityGuard } from '../../../shared/gurads/visibility.guard'; // temporarily removed
+import { ManagedPoll, Public, Roles } from 'src/shared';
+import { AdminRole } from '@prisma/client';
 
 @ApiTags('Polls')
 @Controller('polls')
+@UseGuards(PollPermissionGuard)
 export class PollController {
-  constructor(private readonly pollService: PollService) {}
+  constructor(private readonly pollService: PollService) { }
 
   // ────────────────────────────────
   // Public Voter Endpoints
@@ -50,6 +53,7 @@ export class PollController {
 
   // GET: /polls/eligible
   @Get('eligible')
+  @Public()
   @ApiOperation({
     summary: 'Get eligible polls for a voter',
     description:
@@ -79,7 +83,8 @@ export class PollController {
   // ────────────────────────────────
 
   @Get()
-  @UseGuards(PrivilegedAuthGuard)
+  @Roles(AdminRole.SUPER_ADMIN, AdminRole.POLL_ADMIN)
+  @ManagedPoll()
   @ApiOperation({ summary: 'Get all polls' })
   @ApiResponse({
     status: 200,
@@ -87,13 +92,16 @@ export class PollController {
     type: PollResponseDto,
     isArray: true,
   })
-  async getAllPolls(): Promise<PollResponseDto[]> {
-    const polls = await this.pollService.getAll();
+  async getAllPolls(
+    @Query() query: GetPollsQueryDto,
+  ): Promise<PollResponseDto[]> {
+    const polls = await this.pollService.getAll(query);
     return toPollResponseDtos(polls);
   }
 
   @Get(':id')
-  // @UseGuards(PollVisibilityGuard) // temporarily removed
+  @Roles(AdminRole.SUPER_ADMIN, AdminRole.POLL_ADMIN)
+  @ManagedPoll()
   @ApiOperation({ summary: 'Get poll by ID' })
   @ApiParam({ name: 'id', type: String })
   @ApiResponse({
@@ -109,7 +117,7 @@ export class PollController {
   }
 
   @Post()
-  @UseGuards(PrivilegedAuthGuard)
+  @Roles(AdminRole.SUPER_ADMIN)
   @ApiOperation({ summary: 'Create a new poll' })
   @ApiBody({ type: CreatePollRequestDto })
   @ApiResponse({
@@ -125,7 +133,8 @@ export class PollController {
   }
 
   @Put(':id')
-  @UseGuards(PrivilegedAuthGuard)
+  @Roles(AdminRole.SUPER_ADMIN, AdminRole.POLL_ADMIN)
+  @ManagedPoll()
   @ApiOperation({ summary: 'Update a poll' })
   @ApiParam({ name: 'id', type: String })
   @ApiBody({ type: UpdatePollRequestDto })
@@ -143,7 +152,7 @@ export class PollController {
   }
 
   @Delete(':id')
-  @UseGuards(PrivilegedAuthGuard)
+  @Roles(AdminRole.SUPER_ADMIN)
   @ApiOperation({ summary: 'Delete a poll' })
   @ApiParam({ name: 'id', type: String })
   @ApiResponse({
@@ -159,7 +168,8 @@ export class PollController {
   // ── Voter assignment routes ──────────────────────────────────────────────
 
   @Get(':id/voters')
-  @UseGuards(PrivilegedAuthGuard)
+  @Roles(AdminRole.SUPER_ADMIN, AdminRole.POLL_ADMIN)
+  @ManagedPoll()
   @ApiOperation({ summary: 'List voters assigned to a poll' })
   @ApiParam({ name: 'id', type: String })
   @ApiResponse({
@@ -174,7 +184,8 @@ export class PollController {
   }
 
   @Post(':id/voters')
-  @UseGuards(PrivilegedAuthGuard)
+  @Roles(AdminRole.SUPER_ADMIN, AdminRole.POLL_ADMIN)
+  @ManagedPoll()
   @ApiOperation({ summary: 'Assign a voter to a poll' })
   @ApiParam({ name: 'id', type: String })
   @ApiBody({ type: AssignVoterBodyDto })
@@ -189,14 +200,15 @@ export class PollController {
   ) {
     const eventVoter = await this.pollService.assignVoter(
       param.id,
-      body.voterId,
+      body.voterIds,
       body.canVote,
     );
     return toEventVoterResponseDto(eventVoter);
   }
 
   @Delete(':id/voters')
-  @UseGuards(PrivilegedAuthGuard)
+  @Roles(AdminRole.SUPER_ADMIN, AdminRole.POLL_ADMIN)
+  @ManagedPoll()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Remove a voter from a poll' })
   @ApiParam({ name: 'id', type: String })
@@ -212,5 +224,35 @@ export class PollController {
   ) {
     const message = await this.pollService.removeVoter(param.id, body.voterId);
     return toPollActionMessageResponseDto(message);
+  }
+
+  // GET /polls/:id/admins
+  @Get(':id/admins')
+  @Roles(AdminRole.SUPER_ADMIN, AdminRole.POLL_ADMIN)
+  @ManagedPoll()
+  async listPollAdmins(@Param('id') id: string) {
+    return await this.pollService.listAdmins(id);
+  }
+
+  // POST /polls/:id/admins
+  @Post(':id/admins')
+  @Roles(AdminRole.SUPER_ADMIN)
+  @ManagedPoll()
+  async assignAdmin(
+    @Param('id') id: string,
+    @Body() body: AssignAdminBodyDto,
+  ) {
+    return this.pollService.assignAdmins(id, body.adminIds,);
+  }
+
+  // DELETE /polls/:id/admins
+  @Delete(':id/admins')
+  @Roles(AdminRole.SUPER_ADMIN)
+  @ManagedPoll()
+  async removeAdmin(
+    @Param('id') id: string,
+    @Body('adminId') adminId: string,
+  ) {
+    return this.pollService.removeAdmin(id, adminId);
   }
 }

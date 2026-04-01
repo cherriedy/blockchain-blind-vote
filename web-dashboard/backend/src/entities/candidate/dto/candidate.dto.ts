@@ -56,9 +56,35 @@ export class CreateCandidateRequestDto {
   walletAddress: string;
 }
 
-export class UpdateCandidateRequestDto extends PartialType(
-  CreateCandidateRequestDto,
-) {}
+export class UpdateCandidateRequestDto {
+  @ApiProperty({
+    description: 'Full name of the candidate. Should be at least 3 characters.',
+    example: 'Nguyen Van A',
+    minLength: 3,
+  })
+  @IsString()
+  @IsOptional()
+  @MinLength(3)
+  name?: string;
+
+  @ApiPropertyOptional({
+    description: 'Short biography or introduction for the candidate.',
+    example:
+      'A senior student majoring in Computer Science, passionate about student activities.',
+  })
+  @IsString()
+  @IsOptional()
+  bio?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'URL to the candidate’s avatar image. Should be a valid image link.',
+    example: 'https://example.com/images/avatar.jpg',
+  })
+  @IsString()
+  @IsOptional()
+  avatarUrl?: string;
+}
 
 export class CandidateResponseDto {
   @ApiProperty({ example: '605c5f2e8e3b3a2f88d8b456' })

@@ -1,8 +1,13 @@
-import { EventVoter } from '@prisma/client';
+import { EventVoter, Voter } from '@prisma/client';
 import { EventVoterResponseDto } from '../../election';
+import { toVoterResponseDto } from 'src/entities/voter';
+
+export type EventVoterWithVoter = EventVoter & {
+  voter?: Voter;
+};
 
 export const toEventVoterResponseDto = (
-  eventVoter: EventVoter,
+  eventVoter: EventVoterWithVoter,
 ): EventVoterResponseDto => {
   return {
     id: eventVoter.id,
@@ -12,6 +17,8 @@ export const toEventVoterResponseDto = (
     canVote: eventVoter.canVote,
     createdAt: eventVoter.createdAt,
     updatedAt: eventVoter.updatedAt,
+
+    voter: eventVoter.voter ? toVoterResponseDto(eventVoter.voter) : undefined
   };
 };
 

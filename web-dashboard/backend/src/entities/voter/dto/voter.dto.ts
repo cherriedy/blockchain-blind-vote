@@ -7,6 +7,7 @@ import {
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsValidWalletAddress } from '../../../shared';
+import { PartialType } from '@nestjs/mapped-types';
 
 export class CreateVoterRequestDto {
   @ApiProperty({
@@ -28,6 +29,15 @@ export class CreateVoterRequestDto {
   @IsValidWalletAddress({ variant: 'ethereum' })
   walletAddress: string;
 
+  @ApiProperty({
+    description: 'Full name of the voter. Should be at least 3 characters.',
+    example: 'Nguyen Van A',
+    minLength: 3,
+  })
+  @IsString()
+  @IsNotEmpty()
+  name: string;
+
   @ApiPropertyOptional({
     description:
       'Whether the voter is currently active and eligible to participate.',
@@ -40,14 +50,6 @@ export class CreateVoterRequestDto {
 
 export class SetVoterStatusRequestDto {
   @ApiProperty({
-    description: 'Student ID of the voter whose status is being updated.',
-    example: '20123456',
-  })
-  @IsString()
-  @IsNotEmpty()
-  studentId: string;
-
-  @ApiProperty({
     description: 'New active status for the voter.',
     example: false,
   })
@@ -59,4 +61,13 @@ export class VoterIdParamDto {
   @ApiProperty({ description: 'MongoDB ObjectId of the voter.' })
   @IsMongoId()
   id: string;
+}
+
+export class VoterStudentIdParamDto {
+  @ApiProperty({
+    description: 'Student ID of the voter.',
+    example: '20123456',
+  })
+  @IsNotEmpty()
+  studentId: string;
 }

@@ -1,16 +1,59 @@
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "debian-openssl-3.0.x"]
 }
 
 datasource db {
   provider = "mongodb"
-  url      = env("MONGODB_URI")
+  url      = env("DATABASE_URL")
+}
+
+enum AdminRole {
+  SUPER_ADMIN // CRUD tất cả, gán quyền election, poll
+  ELECTION_ADMIN // CRUD Election cụ thể (được gán bởi SUPER_ADMIN)
+  POLL_ADMIN // CRUD Poll cụ thể (được gán bởi SUPER_ADMIN)
+}
+
+enum SelfNominationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model Admin {
+  id            String    @id @default(auto()) @map("_id") @db.ObjectId
+  walletAddress String    @unique
+  name          String
+  role          AdminRole
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  event EventAdmin[]
+}
+
+model EventAdmin {
+  id      String @id @default(auto()) @map("_id") @db.ObjectId
+  adminId String @db.ObjectId
+  admin   Admin  @relation(fields: [adminId], references: [id])
+
+  voteType String // 'ELECTION' | 'POLL'
+  voteId   String @db.ObjectId // electionId hoặc pollId
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  election Election? @relation(fields: [voteId], references: [id])
+  poll     Poll?     @relation(fields: [voteId], references: [id])
+
+  @@unique([adminId, voteType, voteId])
 }
 
 model Voter {
   id            String       @id @default(auto()) @map("_id") @db.ObjectId
   studentId     String       @unique
   walletAddress String       @unique
+  name          String
   isActive      Boolean      @default(true)
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
@@ -26,39 +69,47 @@ model Candidate {
   walletAddress String   @unique
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+
+  selfNominations SelfNomination[]
 }
 
 model Election {
-  id                      String   @id @default(auto()) @map("_id") @db.ObjectId
-  name                    String   @unique
-  description             String?
-  status                  String   @default("pending")
-  visibility              String   @default("public")
-  isAutomatic             Boolean  @default(false)
-  startAt                 Float?
-  endAt                   Float?
-  candidateIds            String[] @db.ObjectId
-  allowSelfNomination     Boolean  @default(false)
-  selfNominatedCandidates String[]
-  votes                   Json     @default("{}")
-  createdAt               DateTime @default(now())
-  updatedAt               DateTime @updatedAt
+  id          String  @id @default(auto()) @map("_id") @db.ObjectId
+  name        String  @unique
+  description String?
+  status      String  @default("pending")
+  visibility  String  @default("public")
+
+  // Chốt danh sách cử tri
+  voterListFinalized Boolean @default(false)
+
+  candidateIds        String[] @db.ObjectId
+  allowSelfNomination Boolean  @default(false)
+
+  isAutomatic Boolean      @default(false)
+  startAt     Float?
+  endAt       Float?
+  votes       Json         @default("{}")
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  eventAdmins EventAdmin[]
 }
 
 model Poll {
-  id          String   @id @default(auto()) @map("_id") @db.ObjectId
-  name        String   @unique
+  id          String       @id @default(auto()) @map("_id") @db.ObjectId
+  name        String       @unique
   description String?
-  status      String   @default("pending")
-  visibility  String   @default("public")
-  isAutomatic Boolean  @default(false)
+  status      String       @default("pending")
+  visibility  String       @default("public")
+  isAutomatic Boolean      @default(false)
   startAt     Float?
   endAt       Float?
   question    String
   options     String[]
   votes       Int[]
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  eventAdmins EventAdmin[]
 }
 
 model BallotRequest {
@@ -72,9 +123,7 @@ model BallotRequest {
   walletChallengeNonce     String?
   walletChallengeExpiresAt DateTime?
   isChallenged             Boolean   @default(false)
-
-  // Prevent double voting by marking the ballot as signed once the challenge is completed
-  isSigned Boolean @default(false)
+  isSigned                 Boolean   @default(false)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -83,14 +132,45 @@ model BallotRequest {
 }
 
 model EventVoter {
-  id        String   @id @default(auto()) @map("_id") @db.ObjectId
-  voterId   String   @db.ObjectId
-  voter     Voter    @relation(fields: [voterId], references: [id])
-  voteType  String
-  voteId    String
-  canVote   Boolean  @default(true)
+  id       String  @id @default(auto()) @map("_id") @db.ObjectId
+  voterId  String  @db.ObjectId
+  voter    Voter   @relation(fields: [voterId], references: [id])
+  voteType String
+  voteId   String
+  canVote  Boolean @default(true)
+
+  // who assigned this voter to the election/poll (adminId)
+  assignedBy String? @db.ObjectId
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@unique([voteType, voteId, voterId])
+}
+
+model SelfNomination {
+  id         String @id @default(auto()) @map("_id") @db.ObjectId
+  electionId String @db.ObjectId
+
+  candidateId  String    @db.ObjectId
+  candidate    Candidate @relation(fields: [candidateId], references: [id])
+  introduction String?
+
+  status SelfNominationStatus @default(PENDING)
+
+  adminNotes String? // Ghi chú của admin khi từ chối
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([electionId, candidateId]) // Một người chỉ ứng cử 1 lần vào 1 election
+}
+
+model AuditLog {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  adminId    String   @db.ObjectId
+  action     String // e.g., "ADD_VOTER", "REMOVE_CANDIDATE", "FINALIZE_VOTERS"
+  targetType String // "ELECTION" hoặc "POLL"
+  targetId   String // ID of the election or poll
+  details    Json // Storing additional info like which voter was added/removed, etc.
+  createdAt  DateTime @default(now())
 }

@@ -17,6 +17,7 @@ export const toPollResponseDto = (poll: Poll): PollResponseDto => {
     createdAt: poll.createdAt,
     updatedAt: poll.updatedAt,
   };
+
 };
 
 export const toPollResponseDtos = (polls: Poll[]): PollResponseDto[] => {

@@ -6,19 +6,18 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Voter } from '@prisma/client';
+import { Prisma, Voter } from '@prisma/client';
 import { VotingContextService } from '../../voting';
 import { EventVoterService } from '../event';
-import { PrismaService } from '../../prisma';
+import { prisma } from 'prisma/prisma.service';
 
 @Injectable()
 export class VoterService {
   constructor(
-    private readonly prisma: PrismaService,
     @Inject(forwardRef(() => EventVoterService))
     private readonly eventVoterService: EventVoterService,
     private readonly votingContextService: VotingContextService,
-  ) {}
+  ) { }
 
   async findByWalletAddress(walletAddress: string): Promise<Voter | null> {
     const normalizedWallet =
@@ -26,7 +25,7 @@ export class VoterService {
     if (!normalizedWallet) {
       throw new BadRequestException('Invalid walletAddress');
     }
-    return this.prisma.voter.findFirst({
+    return prisma.voter.findFirst({
       where: { walletAddress: normalizedWallet },
     });
   }
@@ -37,7 +36,7 @@ export class VoterService {
     if (!normalizedStudentId) {
       throw new BadRequestException('Invalid studentId');
     }
-    return this.prisma.voter.findFirst({
+    return prisma.voter.findFirst({
       where: { studentId: normalizedStudentId },
     });
   }
@@ -45,6 +44,7 @@ export class VoterService {
   async create(
     studentId: string,
     walletAddress: string,
+    name: string,
     isActive = true,
   ): Promise<{ message: string; voterId: string }> {
     const normalizedStudentId =
@@ -56,10 +56,10 @@ export class VoterService {
       throw new BadRequestException('Missing studentId or walletAddress');
     }
 
-    const byStudent = await this.prisma.voter.findFirst({
+    const byStudent = await prisma.voter.findFirst({
       where: { studentId: normalizedStudentId },
     });
-    const byWallet = await this.prisma.voter.findFirst({
+    const byWallet = await prisma.voter.findFirst({
       where: { walletAddress: normalizedWallet },
     });
 
@@ -67,10 +67,11 @@ export class VoterService {
       throw new ConflictException('studentId or walletAddress already exists');
     }
 
-    const voter = await this.prisma.voter.create({
+    const voter = await prisma.voter.create({
       data: {
         studentId: normalizedStudentId,
         walletAddress: normalizedWallet,
+        name,
         isActive,
       },
     });
@@ -85,12 +86,12 @@ export class VoterService {
     const normalizedStudentId =
       this.votingContextService.normalizeStudentId(studentId);
 
-    const voter = await this.prisma.voter.findFirst({
+    const voter = await prisma.voter.findFirst({
       where: { studentId: normalizedStudentId },
     });
     if (!voter) throw new NotFoundException('Voter not found');
 
-    await this.prisma.voter.update({
+    await prisma.voter.update({
       where: { id: voter.id },
       data: { isActive },
     });
@@ -102,41 +103,66 @@ export class VoterService {
     };
   }
 
-  async getAll() {
-    return this.prisma.voter.findMany();
+  async getAll(search?: string) {
+    return prisma.voter.findMany({
+      where: {
+        AND: [
+          search
+            ? {
+              OR: [
+                { studentId: { contains: search, mode: 'insensitive' } },
+                { name: { contains: search, mode: 'insensitive' } },
+              ],
+            }
+            : {},
+        ],
+      },
+      take: search ? 10 : undefined,
+    });
   }
 
-  async getById(id: string) {
-    const voter = await this.prisma.voter.findUnique({ where: { id } });
+  async setVoterStatusById(id: string, isActive: boolean, currentAdminWallet: string) {
+    const voter = await prisma.voter.findUnique({ where: { id } });
+
+    if (!voter) throw new NotFoundException('Voter not found');
+
+    if (voter.walletAddress === currentAdminWallet) {
+      throw new BadRequestException('You cannot update your own active status');
+    }
+
+    await prisma.voter.update({
+      where: { id },
+      data: { isActive }
+    });
+
+    return {
+      message: 'Voter status updated',
+      voterId: id,
+      isActive
+    };
+  }
+
+  async getByStudentId(id: string) {
+    const voter = await prisma.voter.findUnique({ where: { studentId: id } });
     if (!voter) throw new NotFoundException('Voter not found');
     return voter;
   }
 
-  async setVoterStatusById(id: string, isActive: boolean) {
-    const voter = await this.prisma.voter.findUnique({ where: { id } });
-    if (!voter) throw new NotFoundException('Voter not found');
-    await this.prisma.voter.update({ where: { id }, data: { isActive } });
-    return { message: 'Voter status updated', id, isActive };
-  }
-
-  async update(
-    id: string,
-    dto: {
-      studentId: string;
-      walletAddress: string;
-      isActive?: boolean;
-    },
-  ) {
-    const voter = await this.prisma.voter.findUnique({ where: { id } });
-    if (!voter) throw new NotFoundException('Voter not found');
-    await this.prisma.voter.update({ where: { id }, data: dto });
-    return { message: 'Voter updated', id };
-  }
-
   async delete(id: string) {
-    const voter = await this.prisma.voter.findUnique({ where: { id } });
+    const voter = await prisma.voter.findUnique({ where: { id } });
     if (!voter) throw new NotFoundException('Voter not found');
-    await this.prisma.voter.delete({ where: { id } });
-    return { message: 'Voter deleted', id };
+    try {
+      await prisma.voter.delete({ where: { id } });
+      return { message: 'Voter deleted successfully', id };
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError) {
+        if (error.code === 'P2014') {
+          throw new BadRequestException(
+            'This voter is currently part of an election and cannot be removed.'
+          );
+        }
+      }
+      throw error;
+    }
   }
 }

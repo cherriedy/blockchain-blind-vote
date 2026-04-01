@@ -3,14 +3,13 @@ import { ElectionController } from './election.controller';
 import { ElectionService } from './election.service';
 import { VoterModule } from '../../voter';
 import { EventVoterModule } from '../voter';
-import { PrivilegedAuthGuard } from '../../../shared/gurads';
 import { CandidateModule } from '../../candidate';
-import { Reflector } from '@nestjs/core';
+import { ElectionPermissionGuard } from 'src/shared/guards/election-permission.guard';
 
 @Module({
   imports: [VoterModule, EventVoterModule, CandidateModule],
   controllers: [ElectionController],
-  providers: [Reflector, ElectionService, PrivilegedAuthGuard],
+  providers: [ElectionService, ElectionPermissionGuard],
   exports: [ElectionService],
 })
 export class ElectionModule {}

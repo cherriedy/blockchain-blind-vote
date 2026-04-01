@@ -1,4 +1,6 @@
 import {
+  ArrayNotEmpty,
+  IsArray,
   IsBoolean,
   IsEnum,
   IsMongoId,
@@ -67,18 +69,18 @@ export class RemoveEventVoterRequestDto {
   voteId: string;
 }
 
-/** Body DTO for assigning a voter to a specific event. */
 export class AssignVoterBodyDto {
   @ApiProperty({
-    description: 'The voter document ID to assign to the event.',
-    example: '6800a1b2c3d4e5f6a7b8c9d0',
+    description: 'List of voter document IDs to assign to the event.',
+    example: ['6800a1b2c3d4e5f6a7b8c9d0', '6800a1b2c3d4e5f6a7b8c9d1'],
   })
-  @IsString()
-  @IsNotEmpty()
-  voterId: string;
+  @IsArray()
+  @ArrayNotEmpty()
+  @IsString({ each: true })
+  voterIds: string[];
 
   @ApiPropertyOptional({
-    description: 'Whether the voter is allowed to vote. Defaults to true.',
+    description: 'Whether the assigned voters are allowed to vote in this event.',
     example: true,
   })
   @IsOptional()

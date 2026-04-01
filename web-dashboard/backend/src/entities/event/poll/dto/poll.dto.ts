@@ -4,10 +4,13 @@ import {
   IsArray,
   ArrayNotEmpty,
   MinLength,
+  IsOptional,
+  IsIn,
 } from 'class-validator';
 import { PartialType } from '@nestjs/mapped-types';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { CreateEventRequestDto } from '../../event.dto';
+import { AdminResponseDto } from 'src/entities/admin';
 
 /** Params DTO for routes like `/poll/:id`. */
 export class PollIdParamDto {
@@ -47,7 +50,7 @@ export class CreatePollRequestDto extends CreateEventRequestDto {
 /**
  * Body DTO for updating a poll.
  */
-export class UpdatePollRequestDto extends PartialType(CreatePollRequestDto) {}
+export class UpdatePollRequestDto extends PartialType(CreatePollRequestDto) { }
 
 export class PollActionMessageResponseDto {
   @ApiProperty({ example: 'Voter removed from poll.' })
@@ -94,4 +97,14 @@ export class PollResponseDto {
 
   @ApiProperty({ example: '2026-03-15T08:30:00.000Z' })
   updatedAt: Date;
+}
+
+export class GetPollsQueryDto {
+  @ApiPropertyOptional({
+    example: 'public',
+    description: 'Filter by visibility (public | private)',
+  })
+  @IsOptional()
+  @IsIn(['public', 'private'])
+  visibility?: string;
 }

@@ -10,6 +10,9 @@ import {
   UseGuards,
   HttpCode,
   HttpStatus,
+  Req,
+  Patch,
+  Request,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -28,9 +31,15 @@ import {
   ElectionCandidatesResponseDto,
   ElectionResponseDto,
   EventVoterResponseDto,
+  GetElectionsQueryDto,
+  RemoveAdminBodyDto,
+  AssignAdminBodyDto,
+  SelfNominationResponseDto,
+  toSelfNominationResponseDto,
+  AuditLogResponseDto,
+  toAuditLogResponseDto,
 } from './dto';
-import { PrivilegedAuthGuard } from '../../../shared/gurads';
-import { Public } from '../../../shared';
+import { ManagedElection, Public, Roles } from '../../../shared';
 import {
   toActionMessageResponseDto,
   toElectionCandidatesResponseDto,
@@ -43,12 +52,15 @@ import {
   toEventVoterResponseDto,
   toEventVoterResponseDtos,
 } from '../voter';
-// import { ElectionVisibilityGuard } from '../../../shared/gurads/visibility.guard'; // temporarily removed
+import { AdminRole, Election } from '@prisma/client';
+import { AdminResponseDto, toAdminResponseDto } from 'src/entities/admin';
+import { ElectionPermissionGuard } from 'src/shared/guards/election-permission.guard';
 
 @ApiTags('Elections')
 @Controller('elections')
+@UseGuards(ElectionPermissionGuard)
 export class ElectionController {
-  constructor(private readonly electionService: ElectionService) {}
+  constructor(private readonly electionService: ElectionService) { }
 
   // ────────────────────────────────
   // Public Voter Endpoints
@@ -56,6 +68,7 @@ export class ElectionController {
 
   // GET: /elections/eligible
   @Get('eligible')
+  @Public()
   @ApiOperation({
     summary: 'Get eligible elections for a voter',
     description:
@@ -104,7 +117,7 @@ export class ElectionController {
 
   // GET: /elections
   @Get()
-  @UseGuards(PrivilegedAuthGuard)
+  @Roles(AdminRole.SUPER_ADMIN, AdminRole.ELECTION_ADMIN)
   @ApiOperation({ summary: 'Get all elections' })
   @ApiResponse({
     status: 200,
@@ -112,14 +125,19 @@ export class ElectionController {
     type: ElectionResponseDto,
     isArray: true,
   })
-  async getAllElections(): Promise<ElectionResponseDto[]> {
-    const elections = await this.electionService.getAll();
+  async getAllElections(
+    @Query() query: GetElectionsQueryDto,
+    @Req() request: any
+  ): Promise<ElectionResponseDto[]> {
+    const admin = request.admin; // attach bởi AdminAuthGuard
+    const elections = await this.electionService.getAll(admin, query);
     return toElectionResponseDtos(elections);
   }
 
   // GET: /elections/:id
   @Get(':id')
-  // @UseGuards(ElectionVisibilityGuard) // temporarily removed
+  @Roles(AdminRole.SUPER_ADMIN, AdminRole.ELECTION_ADMIN)
+  @ManagedElection()
   @ApiOperation({ summary: 'Get election by ID' })
   @ApiParam({ name: 'id', type: String })
   @ApiResponse({
@@ -136,7 +154,7 @@ export class ElectionController {
 
   // POST: /elections
   @Post()
-  @UseGuards(PrivilegedAuthGuard)
+  @Roles(AdminRole.SUPER_ADMIN,)
   @ApiOperation({ summary: 'Create a new election' })
   @ApiBody({ type: CreateElectionRequestDto })
   @ApiResponse({
@@ -153,7 +171,8 @@ export class ElectionController {
 
   // PUT: /elections/:id
   @Put(':id')
-  @UseGuards(PrivilegedAuthGuard)
+  @Roles(AdminRole.SUPER_ADMIN, AdminRole.ELECTION_ADMIN)
+  @ManagedElection()
   @ApiOperation({ summary: 'Update an election' })
   @ApiParam({ name: 'id', type: String })
   @ApiBody({ type: UpdateElectionRequestDto })
@@ -172,7 +191,7 @@ export class ElectionController {
 
   // DELETE: /elections/:id
   @Delete(':id')
-  @UseGuards(PrivilegedAuthGuard)
+  @Roles(AdminRole.SUPER_ADMIN,)
   @ApiOperation({ summary: 'Delete an election' })
   @ApiParam({ name: 'id', type: String })
   @ApiResponse({
@@ -193,7 +212,8 @@ export class ElectionController {
 
   // GET: /elections/:id/voters
   @Get(':id/voters')
-  @UseGuards(PrivilegedAuthGuard)
+  @Roles(AdminRole.SUPER_ADMIN, AdminRole.ELECTION_ADMIN)
+  @ManagedElection()
   @ApiOperation({ summary: 'List voters assigned to an election' })
   @ApiParam({ name: 'id', type: String })
   @ApiResponse({
@@ -211,30 +231,32 @@ export class ElectionController {
 
   // POST: /elections/:id/voters
   @Post(':id/voters')
-  @UseGuards(PrivilegedAuthGuard)
-  @ApiOperation({ summary: 'Assign a voter to an election' })
+  @Roles(AdminRole.SUPER_ADMIN, AdminRole.ELECTION_ADMIN)
+  @ManagedElection()
+  @ApiOperation({ summary: 'Assign multiple voters to an election' })
   @ApiParam({ name: 'id', type: String })
   @ApiBody({ type: AssignVoterBodyDto })
   @ApiResponse({
-    status: 201,
-    description: 'Voter assigned to election.',
-    type: EventVoterResponseDto,
+    status: 200,
+    description: 'Voters assigned to election.',
+    type: [EventVoterResponseDto],
   })
-  async assignVoterToElection(
+  async assignVotersToElection(
     @Param() param: ElectionIdParamDto,
     @Body() body: AssignVoterBodyDto,
-  ): Promise<EventVoterResponseDto> {
-    const eventVoter = await this.electionService.assignVoter(
+  ) {
+    return this.electionService.assignVoters(
       param.id,
-      body.voterId,
+      body.voterIds,
       body.canVote,
     );
-    return toEventVoterResponseDto(eventVoter);
   }
+
 
   // DELETE: /elections/:id/voters
   @Delete(':id/voters')
-  @UseGuards(PrivilegedAuthGuard)
+  @Roles(AdminRole.SUPER_ADMIN, AdminRole.ELECTION_ADMIN)
+  @ManagedElection()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Remove a voter from an election' })
   @ApiParam({ name: 'id', type: String })
@@ -255,12 +277,79 @@ export class ElectionController {
     return toActionMessageResponseDto(message);
   }
 
+  // GET: /elections/:id/admins
+  @Get(':id/admins')
+  @Roles(AdminRole.SUPER_ADMIN, AdminRole.ELECTION_ADMIN)
+  @ManagedElection()
+  @ApiOperation({ summary: 'List admins assigned to an election' })
+  @ApiParam({ name: 'id', type: String })
+  @ApiResponse({
+    status: 200,
+    description: 'List of admins for the election.',
+    type: AdminResponseDto,
+    isArray: true,
+  })
+  async listElectionAdmins(
+    @Param() param: ElectionIdParamDto,
+  ){
+    return await this.electionService.listAdmins(param.id);
+  }
+
+  //POST: /elections/:id/admins
+  @Post(':id/admins')
+  @Roles(AdminRole.SUPER_ADMIN)
+  @ManagedElection()
+  @ApiOperation({ summary: 'Assign admins to an election' })
+  @ApiParam({ name: 'id', type: String })
+  @ApiBody({ type: AssignAdminBodyDto })
+  @ApiResponse({
+    status: 201,
+    description: 'Admin assigned to election.',
+    type: ElectionResponseDto,
+  })
+  async assignAdminToElection(
+    @Param() param: ElectionIdParamDto,
+    @Body() body: AssignAdminBodyDto,
+  ) {
+    const assignments = await this.electionService.assignAdmins(
+      param.id,
+      body.adminIds,
+    );
+
+    return assignments;
+  }
+
+  // DELETE: /elections/:id/admins
+  @Delete(':id/admins')
+  @Roles(AdminRole.SUPER_ADMIN)
+  @ManagedElection()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Remove an admin from an election' })
+  @ApiParam({ name: 'id', type: String })
+  @ApiBody({ type: RemoveAdminBodyDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Admin removed from election.',
+    type: ActionMessageResponseDto,
+  })
+  async removeAdminFromElection(
+    @Param() param: ElectionIdParamDto,
+    @Body() body: RemoveAdminBodyDto,
+  ): Promise<ActionMessageResponseDto> {
+    const message = await this.electionService.removeAdmin(
+      param.id,
+      body.adminId,
+    );
+    return toActionMessageResponseDto(message);
+  }
+
+
   // ────────────────────────────────
   // Self-Nomination Endpoints
   // ────────────────────────────────
 
-  // POST: /elections/:id/self-nominate
-  @Post(':id/self-nominate')
+  // POST: /elections/:id/self-nominees
+  @Post(':id/self-nominees')
   @Public()
   @ApiOperation({
     summary: 'Self-nominate as a candidate for an election',
@@ -287,13 +376,80 @@ export class ElectionController {
   })
   async selfNominate(
     @Param() param: ElectionIdParamDto,
-    @Body() body: SelfNominateDto,
-  ): Promise<ElectionResponseDto> {
+    @Body() dto: SelfNominateDto,
+  ): Promise<SelfNominationResponseDto> {
     const election = await this.electionService.selfNominate(
       param.id,
-      body.walletAddress,
-      body.studentId,
+      dto,
     );
-    return toElectionResponseDto(election);
+    return toSelfNominationResponseDto(election);
+  }
+
+  //GET /elections/:id/self-nominees
+  @Get(':id/self-nominees')
+  @Roles(AdminRole.SUPER_ADMIN, AdminRole.ELECTION_ADMIN)
+  @ManagedElection()
+  @ApiOperation({ summary: 'Get all self-nominated candidates for an election' })
+  @ApiParam({ name: 'id', type: String, description: 'Election ID' })
+  @ApiResponse({
+    status: 200,
+    description: 'Self-nominated candidates retrieved.',
+    type: [SelfNominationResponseDto],
+  })
+  async getSelfNominees(
+    @Param() param: ElectionIdParamDto,
+  ): Promise<SelfNominationResponseDto[]> {
+    const selfNominations = await this.electionService.getSelfNominations(param.id);
+    return selfNominations.map(toSelfNominationResponseDto);
+  }
+
+  // POST: /elections/:id/self-nominees/:candidateId/approve
+  @Post(':id/self-nominees/:candidateId/approve')
+  @Roles(AdminRole.SUPER_ADMIN)
+  @ManagedElection()
+  @ApiOperation({ summary: 'Approve a self-nominated candidate for an election' })
+  @ApiParam({ name: 'id', type: String })
+  @ApiParam({ name: 'candidateId', type: String })
+  @ApiResponse({
+    status: 200,
+    description: 'Candidate approved.',
+    type: AuditLogResponseDto,
+  })
+  async approveSelfNominee(
+    @Param() param: { id: string; candidateId: string },
+    @Request() req: any
+  ): Promise<AuditLogResponseDto> {
+    const adminId = req.admin.id;
+    const log = await this.electionService.approveSelfNominee(
+      param.id,
+      param.candidateId,
+      adminId
+    );
+    return toAuditLogResponseDto(log)
+  }
+
+  //DELETE	/elections/:id/self-nominees/:candidateId/reject
+  @Delete(':id/self-nominees/:candidateId/reject')
+  @Roles(AdminRole.SUPER_ADMIN)
+  @ManagedElection()
+  @ApiOperation({ summary: 'Reject a self-nominated candidate for an election' })
+  @ApiParam({ name: 'id', type: String })
+  @ApiParam({ name: 'candidateId', type: String })
+  @ApiResponse({
+    status: 200,
+    description: 'Candidate rejected.',
+    type: AuditLogResponseDto,
+  })
+  async rejectSelfNominee(
+    @Param() param: { id: string; candidateId: string },
+    @Request() req: any
+  ): Promise<AuditLogResponseDto> {
+    const adminId = req.admin.id;
+    const log = await this.electionService.rejectSelfNominee(
+      param.id,
+      param.candidateId,
+      adminId
+    );
+    return toAuditLogResponseDto(log);
   }
 }

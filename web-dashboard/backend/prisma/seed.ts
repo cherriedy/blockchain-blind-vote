@@ -46,7 +46,8 @@ async function main() {
     voter = await prisma.voter.create({
       data: {
         studentId: '2254810059',
-        walletAddress: '0xa7ab774d7c827e6dcd8b2131079f4860b0d4d149',
+        walletAddress: '0x0b9392f828396fae906330f352eb9db5e387ec01',
+        name: 'Ho Dinh Huy',
         isActive: true,
       },
     });
