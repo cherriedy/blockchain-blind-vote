@@ -10,6 +10,9 @@ import {
   HttpCode,
   HttpStatus,
   Query,
+  UseInterceptors,
+  UploadedFile,
+  BadRequestException,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -17,6 +20,7 @@ import {
   ApiResponse,
   ApiParam,
   ApiBody,
+  ApiQuery,
 } from '@nestjs/swagger';
 import { CandidateService } from './candidate.service';
 import {
@@ -25,13 +29,13 @@ import {
   UpdateCandidateRequestDto,
   CandidateResponseDto,
 } from './dto';
-import { AdminAuthGuard, RolesGuard } from '../../shared/guards';
-import { Public, Roles } from '../../shared/decorations';
+import { Public } from '../../shared/decorations';
 import { toCandidateResponseDto, toCandidateResponseDtos } from './dto';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { diskStorage } from 'multer';
 
 @ApiTags('Candidates')
 @Controller('candidates')
-
 export class CandidateController {
   constructor(private readonly candidateService: CandidateService) { }
 
@@ -44,7 +48,7 @@ export class CandidateController {
   @Public()
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({
-    summary: 'Register as a candidate',
+    summary: 'Register as a candidate (public)',
     description:
       'Allows an eligible voter to create their own candidate profile. ' +
       'The provided walletAddress and studentId must match an existing active Voter record. ' +
@@ -66,11 +70,49 @@ export class CandidateController {
     status: 409,
     description: 'Candidate profile already exists for this wallet address.',
   })
+  @UseInterceptors(
+    FileInterceptor('avatar', {
+      storage: diskStorage({
+        destination: './uploads',
+        filename: (req, file, cb) => {
+          const uniqueName =
+            Date.now() + '-' + file.originalname.replace(/\s/g, '');
+          cb(null, uniqueName);
+        },
+      }),
+    }),
+  )
   async registerAsCandidate(
+    @UploadedFile() file: Express.Multer.File,
     @Body() body: CreateCandidateRequestDto,
   ): Promise<CandidateResponseDto> {
-    const candidate = await this.candidateService.registerAsCandidate(body);
+    const avatarUrl = file ? `/uploads/${file.filename}` : undefined;
+
+    const candidate = await this.candidateService.registerAsCandidate({
+      ...body,
+      avatarUrl,
+    });
+
     return toCandidateResponseDto(candidate);
+  }
+
+  @Get('me')
+  @Public()
+  @ApiOperation({ summary: 'Get my candidate by walletAddress (public)' })
+  @ApiQuery({ name: 'walletAddress', required: true, type: String })
+  @ApiResponse({
+    status: 200,
+    description: 'My candidate info',
+    type: CandidateResponseDto,
+  })
+  async getMyCandidate(
+    @Query('walletAddress') walletAddress: string,
+  ): Promise<CandidateResponseDto | null> {
+    if (!walletAddress) {
+    throw new BadRequestException('walletAddress is required');
+  }
+    const candidate = await this.candidateService.getByWallet(walletAddress);
+    return candidate ? toCandidateResponseDto(candidate) : null;
   }
 
   // ADMIN ROLE

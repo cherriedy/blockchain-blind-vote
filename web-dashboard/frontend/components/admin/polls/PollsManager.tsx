@@ -1,14 +1,10 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { adminService } from '@/lib/api';
-import { Admin, AdminRole, Poll, PollFormData, Voter } from '@/lib/types/admin';
+import { Admin, AdminRole, EventStatus, ManagerProps, Poll, PollFormData, Voter } from '@/lib/types/admin';
 import PollFormModal from './PollFormModal';
-
-interface Props {
-    role: AdminRole | null;
-    onError: (err: string) => void;
-}
+import { adminService } from '@/services/admin.service';
+import { useSnackbar } from '@/components/core/SnackbarContext';
 
 type PollSubmitData = PollFormData & {
     addedAdmins?: Admin[];
@@ -17,7 +13,8 @@ type PollSubmitData = PollFormData & {
     removedVoterIds?: string[];
 };
 
-export default function PollsManager({ role, onError }: Props) {
+export default function PollsManager({ role }: ManagerProps) {
+    const { showMessage } = useSnackbar();
     const [polls, setPolls] = useState<Poll[]>([]);
     const [loading, setLoading] = useState(false);
     const [openModal, setOpenModal] = useState(false);
@@ -29,7 +26,13 @@ export default function PollsManager({ role, onError }: Props) {
             const res = await adminService.getPolls();
             setPolls(res.data);
         } catch (err: any) {
-            onError(err.response?.data?.message || 'Lỗi tải poll');
+            console.error(err);
+
+            if (err?.response?.data?.message) {
+                showMessage(err.response.data.message, 'error');
+            } else {
+                showMessage('Something went wrong', 'error');
+            }
         }
         setLoading(false);
     };
@@ -97,7 +100,13 @@ export default function PollsManager({ role, onError }: Props) {
             setEditingPoll(null);
             fetchPolls();
         } catch (err: any) {
-            onError(err.response?.data?.message || 'Lỗi xử lý poll');
+            console.error(err);
+
+            if (err?.response?.data?.message) {
+                showMessage(err.response.data.message, 'error');
+            } else {
+                showMessage('Something went wrong', 'error');
+            }
         }
     };
 
@@ -107,23 +116,24 @@ export default function PollsManager({ role, onError }: Props) {
             await adminService.deletePoll(id);
             fetchPolls();
         } catch (err: any) {
-            onError(err.response?.data?.message || 'Lỗi xóa');
+            console.error(err);
+
+            if (err?.response?.data?.message) {
+                showMessage(err.response.data.message, 'error');
+            } else {
+                showMessage('Something went wrong', 'error');
+            }
         }
     };
 
-    const getStatusBadge = (status: string) => {
-        const colors: any = {
+    const getStatusBadge = (status: EventStatus) => {
+        const colors = {
             pending: 'bg-amber-50 text-amber-700 border-amber-200',
             active: 'bg-green-50 text-green-700 border-green-200',
-            ended: 'bg-slate-50 text-slate-700 border-slate-200',
+            completed: 'bg-slate-50 text-slate-700 border-slate-200',
+            cancelled: 'bg-red-50 text-red-700 border-red-200',
         };
-
-        const labels: any = {
-            pending: 'Chưa bắt đầu',
-            active: 'Đang diễn ra',
-            ended: 'Đã kết thúc',
-        };
-
+        const labels = { pending: 'Chưa bắt đầu', active: 'Đang diễn ra', completed: 'Đã kết thúc', cancelled: 'Đã hủy' };
         return (
             <span className={`px-2.5 py-1 text-xs font-bold border rounded-lg ${colors[status]}`}>
                 {labels[status]}
@@ -152,93 +162,100 @@ export default function PollsManager({ role, onError }: Props) {
             </div>
 
             <PollFormModal
+                role={role}
                 open={openModal}
                 onClose={() => setOpenModal(false)}
                 onSubmit={handleSubmit}
                 initialData={editingPoll}
                 mode={editingPoll ? 'edit' : 'create'}
             />
+            {loading ? (
+                <div className="h-64 flex flex-col items-center justify-center">
+                    <div className="w-10 h-10 border-4 border-slate-300 border-t-slate-900 rounded-full animate-spin mb-4"></div>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Đang tải...</p>
+                </div>
+            ) : (
+                <div className="grid grid-cols-1 gap-4">
+                    {polls.length === 0 ? (
+                        <p className="text-center text-slate-500 italic py-8">
+                            Chưa có poll nào
+                        </p>
+                    ) : (
+                        polls.map((poll) => (
+                            <div
+                                key={poll.id}
+                                className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 hover:shadow-md transition-all"
+                            >
+                                <div className="flex items-start justify-between mb-4">
+                                    <div className="flex-1">
+                                        <h3 className="font-black text-slate-900 uppercase tracking-tight mb-2">
+                                            {poll.name}
+                                        </h3>
 
-            <div className="grid grid-cols-1 gap-4">
-                {polls.length === 0 ? (
-                    <p className="text-center text-slate-500 italic py-8">
-                        Chưa có poll nào
-                    </p>
-                ) : (
-                    polls.map((poll) => (
-                        <div
-                            key={poll.id}
-                            className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 hover:shadow-md transition-all"
-                        >
-                            <div className="flex items-start justify-between mb-4">
-                                <div className="flex-1">
-                                    <h3 className="font-black text-slate-900 uppercase tracking-tight mb-2">
-                                        {poll.name}
-                                    </h3>
-
-                                    {poll.description && (
-                                        <p className="text-sm text-slate-600 mb-2">
-                                            {poll.description}
-                                        </p>
-                                    )}
-
-                                    <p className="text-sm font-medium text-blue-600 mb-3">
-                                        {poll.question}
-                                    </p>
-
-                                    <div className="flex flex-wrap items-center gap-3">
-                                        {getStatusBadge(poll.status)}
-
-                                        <span className="text-xs px-2 py-1 bg-slate-50 text-slate-600 border border-slate-200 rounded">
-                                            {poll.visibility === 'public' ? 'Công khai' : 'Riêng tư'}
-                                        </span>
-
-                                        {poll.isAutomatic && (
-                                            <span className="text-xs px-2 py-1 bg-blue-50 text-blue-600 border border-blue-200 rounded">
-                                                Tự động
-                                            </span>
+                                        {poll.description && (
+                                            <p className="text-sm text-slate-600 mb-2">
+                                                {poll.description}
+                                            </p>
                                         )}
+
+                                        <p className="text-sm font-medium text-blue-600 mb-3">
+                                            {poll.question}
+                                        </p>
+
+                                        <div className="flex flex-wrap items-center gap-3">
+                                            {getStatusBadge(poll.status)}
+
+                                            <span className="text-xs px-2 py-1 bg-slate-50 text-slate-600 border border-slate-200 rounded">
+                                                {poll.visibility === 'public' ? 'Công khai' : 'Riêng tư'}
+                                            </span>
+
+                                            {poll.isAutomatic && (
+                                                <span className="text-xs px-2 py-1 bg-blue-50 text-blue-600 border border-blue-200 rounded">
+                                                    Tự động
+                                                </span>
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
 
-                            {/* OPTIONS */}
-                            <div className="flex flex-wrap gap-2 mb-4">
-                                {poll.options.map((opt, idx) => (
-                                    <span
-                                        key={idx}
-                                        className="text-xs bg-slate-100 px-2 py-1 rounded"
-                                    >
-                                        {opt}
-                                    </span>
-                                ))}
-                            </div>
+                                {/* OPTIONS */}
+                                <div className="flex flex-wrap gap-2 mb-4">
+                                    {poll.options.map((opt, idx) => (
+                                        <span
+                                            key={idx}
+                                            className="text-xs bg-slate-100 px-2 py-1 rounded"
+                                        >
+                                            {opt}
+                                        </span>
+                                    ))}
+                                </div>
 
-                            {/* ACTION */}
-                            <div className="border-t border-slate-100 pt-4 flex gap-2 justify-end">
-                                <button
-                                    onClick={() => {
-                                        setEditingPoll(poll);
-                                        setOpenModal(true);
-                                    }}
-                                    className="px-3 py-1.5 bg-yellow-50 text-yellow-600 rounded-lg text-xs font-bold"
-                                >
-                                    Sửa
-                                </button>
-
-                                {role === 'SUPER_ADMIN' && (
+                                {/* ACTION */}
+                                <div className="border-t border-slate-100 pt-4 flex gap-2 justify-end">
                                     <button
-                                        onClick={() => handleDelete(poll.id)}
-                                        className="px-3 py-1.5 bg-red-50 text-red-600 rounded-lg text-xs font-bold hover:bg-red-100 transition-all"
+                                        onClick={() => {
+                                            setEditingPoll(poll);
+                                            setOpenModal(true);
+                                        }}
+                                        className="px-3 py-1.5 bg-yellow-50 text-yellow-600 rounded-lg text-xs font-bold"
                                     >
-                                        Xóa
+                                        Sửa
                                     </button>
-                                )}
+
+                                    {role === 'SUPER_ADMIN' && (
+                                        <button
+                                            onClick={() => handleDelete(poll.id)}
+                                            className="px-3 py-1.5 bg-red-50 text-red-600 rounded-lg text-xs font-bold hover:bg-red-100 transition-all"
+                                        >
+                                            Xóa
+                                        </button>
+                                    )}
+                                </div>
                             </div>
-                        </div>
-                    ))
-                )}
-            </div>
+                        ))
+                    )}
+                </div>
+            )}
         </div>
     );
 }

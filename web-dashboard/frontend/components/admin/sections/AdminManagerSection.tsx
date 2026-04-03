@@ -5,8 +5,8 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { PlusIcon } from 'lucide-react';
-import { Admin, ElectionAdmin } from '@/lib/types/admin';
-import { adminService } from '@/lib/api';
+import { Admin } from '@/lib/types/admin';
+import { adminService } from '@/services/admin.service';
 
 interface Props {
     objectId?: string;

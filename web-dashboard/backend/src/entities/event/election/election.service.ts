@@ -3,13 +3,16 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Admin, AdminRole, Candidate, Election, EventVoter, SelfNomination } from '@prisma/client';
+import { Admin, AdminRole, Candidate, Election, EventVoter, SelfNomination, SelfNominationStatus } from '@prisma/client';
 import { VotingEventType } from '../../../enums';
 import { EventVoterService } from '../voter';
 import { VotingContextService } from '../../../voting';
-import { CreateElectionRequestDto, SelfNominateDto, UpdateElectionRequestDto } from './dto';
+import { CreateElectionRequestDto, ResubmitSelfNominateDto, SelfNominateDto, UpdateElectionRequestDto } from './dto';
 import { CandidateService } from '../../candidate';
 import { prisma } from 'prisma/prisma.service';
+import { MailService } from 'src/mail/mail.service';
+import { buildEmailTemplate } from 'src/mail/template';
+import { E } from 'node_modules/@faker-js/faker/dist/airline-eVQV6kbz';
 
 @Injectable()
 export class ElectionService {
@@ -17,8 +20,8 @@ export class ElectionService {
     private readonly eventVoterService: EventVoterService,
     private readonly candidateService: CandidateService,
     private readonly votingContextService: VotingContextService,
+    private readonly mailService: MailService,
   ) { }
-
 
   async getCandidates(
     id: string,
@@ -71,6 +74,25 @@ export class ElectionService {
       },
     });
     return !!assignment;
+  }
+
+  async getPublicElections(walletAddress: string, studentId: string): Promise<Election[]> {
+    const normalizedWallet = this.votingContextService.normalizeWalletAddress(walletAddress);
+    const normalizedStudentId = this.votingContextService.normalizeStudentId(studentId);
+
+    const candidate = await this.candidateService.findByWalletAddressAndStudentId(
+      normalizedWallet,
+      normalizedStudentId
+    );
+
+    if (!candidate) {
+      throw new NotFoundException('Candidate not found');
+    }
+    
+    return prisma.election.findMany({
+      where: { visibility: 'public' },
+      orderBy: { createdAt: 'desc' },
+    });
   }
 
   /**
@@ -150,6 +172,28 @@ export class ElectionService {
     const existing = await prisma.election.findUnique({ where: { id } });
     if (!existing) throw new NotFoundException('Election not found');
 
+    if (existing.status !== 'pending') {
+      throw new BadRequestException('Only elections with status PENDING can be updated');
+    }
+
+    if (existing.voterListFinalized) {
+      throw new BadRequestException('Cannot update election after voter list has been finalized');
+    }
+
+    if (data.visibility === 'public') {
+      const voters = await this.listVoters(id);
+      if (voters.length > 0) {
+        const voterIds = voters.map(v => v.voterId);
+        await prisma.eventVoter.deleteMany({
+          where: {
+            voteId: id,
+            voterId: { in: voterIds },
+            voteType: VotingEventType.ELECTION,
+          },
+        });
+      }
+    }
+
     return prisma.election.update({ where: { id }, data });
   }
 
@@ -160,10 +204,33 @@ export class ElectionService {
    * @throws NotFoundException if the election does not exist.
    */
   async delete(id: string): Promise<Election> {
-    const existing = await prisma.election.findUnique({ where: { id } });
-    if (!existing) throw new NotFoundException('Election not found');
+    const election = await prisma.election.findUnique({
+      where: { id }
+    });
 
-    return prisma.election.delete({ where: { id } });
+    if (!election) {
+      throw new NotFoundException("Election not found");
+    }
+
+    if (election.status !== "pending") {
+      throw new BadRequestException(
+        "Cannot delete election that is ongoing or ended"
+      );
+    }
+
+    if (election.votes && Object.keys(election.votes).length > 0) {
+      throw new BadRequestException(
+        "Cannot delete election with votes"
+      );
+    }
+
+    await prisma.eventAdmin.deleteMany({
+      where: { voteId: id, voteType: 'ELECTION' }
+    });
+
+    return prisma.election.delete({
+      where: { id }
+    });
   }
 
   /**
@@ -195,6 +262,12 @@ export class ElectionService {
   ): Promise<any> {
     const election = await prisma.election.findUnique({ where: { id } });
     if (!election) throw new NotFoundException('Election not found');
+
+    if (election.visibility === 'public') {
+      throw new BadRequestException(
+        'Cannot assign voters to a public election',
+      );
+    }
 
     const existingVoters = await prisma.voter.findMany({
       where: { id: { in: voterIds } },
@@ -370,6 +443,70 @@ export class ElectionService {
     }
   }
 
+  async getAllSelfNominations(status?: SelfNominationStatus) {
+    return prisma.selfNomination.findMany({
+      where: {
+        ...(status && { status }),
+      },
+      include: {
+        candidate: true,
+        election: true,
+        admin: true,
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+  }
+
+  async getSelfNominations(
+    electionId: string,
+    status?: SelfNominationStatus
+  ) {
+    return prisma.selfNomination.findMany({
+      where: {
+        electionId,
+        ...(status && { status }),
+      },
+      include: {
+        candidate: true,
+        admin: true,
+        election: true,
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+  }
+
+  async getMySelfNominations(walletAddress: string, studentId: string) {
+    const normalizedWallet = this.votingContextService.normalizeWalletAddress(walletAddress);
+    const normalizedStudentId = this.votingContextService.normalizeStudentId(studentId);
+
+    const candidate = await this.candidateService.findByWalletAddressAndStudentId(
+      normalizedWallet,
+      normalizedStudentId
+    );
+
+    if (!candidate) {
+      throw new NotFoundException('Candidate not found');
+    }
+
+    return prisma.selfNomination.findMany({
+      where: {
+        candidateId: candidate.id,
+      },
+      include: {
+        election: true,
+        admin: true,
+        candidate: true,
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+  }
+
   /**
    * Self-nominate a candidate for an election.
    * @param electionId - The ID of the election.
@@ -382,8 +519,16 @@ export class ElectionService {
   async selfNominate(
     electionId: string,
     data: SelfNominateDto,
-  ): Promise<SelfNomination> {
+  ): Promise<SelfNomination & { candidate: Candidate } & { admin: Admin | null } & { election: Election }> {
     const { walletAddress, studentId, introduction } = data;
+
+    const normalizedWallet = this.votingContextService.normalizeWalletAddress(
+      walletAddress,
+    );
+
+    const normalizedStudentId = this.votingContextService.normalizeStudentId(
+      studentId,
+    );
 
     const election = await prisma.election.findUnique({
       where: { id: electionId },
@@ -399,8 +544,8 @@ export class ElectionService {
 
     // Verify candidate profile exists for the given wallet address and student ID
     const candidate = await this.candidateService.findByWalletAddressAndStudentId(
-      walletAddress,
-      studentId,
+      normalizedWallet,
+      normalizedStudentId,
     );
 
     if (!candidate) {
@@ -427,7 +572,23 @@ export class ElectionService {
     });
 
     if (existingNomination) {
-      throw new BadRequestException('You have already submitted a nomination for this election');
+      if (existingNomination.status === 'REQUEST_INFO') {
+        throw new BadRequestException(
+          'Please update and resubmit your existing nomination'
+        );
+      }
+
+      if (existingNomination.status === 'PENDING') {
+        throw new BadRequestException('Your nomination is under review');
+      }
+
+      if (existingNomination.status === 'APPROVED') {
+        throw new BadRequestException('You are already approved');
+      }
+
+      if (existingNomination.status === 'REJECTED') {
+        throw new BadRequestException('Your nomination was rejected');
+      }
     }
 
     return prisma.selfNomination.create({
@@ -439,18 +600,9 @@ export class ElectionService {
       },
       include: {
         candidate: true,
+        admin: true,
+        election: true
       },
-    });
-  }
-
-  async getSelfNominations(electionId: string) {
-    return prisma.selfNomination.findMany({
-      where: {
-        electionId: electionId,
-      },
-      include: {
-        candidate: true
-      }
     });
   }
 
@@ -470,14 +622,26 @@ export class ElectionService {
       throw new BadRequestException('This application has already been processed.');
     }
 
-    return prisma.$transaction(async (tx) => {
-      // Update the nomination status
+    const candidate = await prisma.candidate.findUnique({
+      where: { id: candidateId }
+    });
+
+    if (!candidate) {
+      throw new NotFoundException('Candidate not found');
+    }
+
+    const voter = await prisma.voter.findUnique({
+      where: {
+        walletAddress: candidate.walletAddress
+      }
+    });
+
+    const result = await prisma.$transaction(async (tx) => {
       await tx.selfNomination.update({
         where: { id: nomination.id },
-        data: { status: 'APPROVED' }
+        data: { status: 'APPROVED', adminId }
       });
 
-      // Add the candidate to the election's candidateIds array
       await tx.election.update({
         where: { id: electionId },
         data: {
@@ -487,7 +651,6 @@ export class ElectionService {
         }
       });
 
-      // Create Audit Log
       return tx.auditLog.create({
         data: {
           adminId,
@@ -503,6 +666,27 @@ export class ElectionService {
         }
       });
     });
+
+    // send mail 
+    if (voter?.email) {
+      const html = buildEmailTemplate(
+        'Nomination Approved 🎉',
+        `
+      <p>Congratulations!</p>
+      <p>Your nomination has been <b style="color:green;">approved</b>.</p>
+      <p>You are now an official candidate in the election.</p>
+      `,
+        '#28a745'
+      );
+
+      await this.mailService.sendMail(
+        voter.email,
+        'Nomination Approved 🎉',
+        html
+      );
+    }
+
+    return result;
   }
 
   async rejectSelfNominee(
@@ -522,17 +706,32 @@ export class ElectionService {
       throw new BadRequestException('This application has already been processed.');
     }
 
-    return prisma.$transaction(async (tx) => {
-      // 1. Update status and notes
+    const candidate = await prisma.candidate.findUnique({
+      where: { id: candidateId }
+    });
+
+    if (!candidate) {
+      throw new NotFoundException('Candidate not found');
+    }
+
+    const voter = await prisma.voter.findUnique({
+      where: {
+        walletAddress: candidate.walletAddress
+      }
+    });
+
+    const result = prisma.$transaction(async (tx) => {
+      // Update status and notes
       await tx.selfNomination.update({
         where: { id: nomination.id },
         data: {
           status: 'REJECTED',
+          adminId: adminId,
           adminNotes: adminNotes || 'Does not meet requirements'
         }
       });
 
-      // 2. Create Audit Log
+      // Create Audit Log
       return tx.auditLog.create({
         data: {
           adminId,
@@ -546,6 +745,198 @@ export class ElectionService {
           }
         }
       });
+    });
+
+    if (voter?.email) {
+
+      const html = buildEmailTemplate(
+        'Nomination Rejected',
+        `
+        <p>We regret to inform you that your nomination was <b style="color:red;">rejected</b>.</p>
+        <p><b>Reason:</b> ${adminNotes || 'Does not meet requirements'}</p>
+        `,
+        '#dc3545'
+      );
+
+      await this.mailService.sendMail(
+        voter.email,
+        'Nomination Rejected',
+        html
+      );
+    }
+
+    return result;
+  }
+
+  async requestInfoSelfNominee(
+    electionId: string,
+    candidateId: string,
+    adminId: string,
+    adminNotes?: string
+  ) {
+    const nomination = await prisma.selfNomination.findUnique({
+      where: {
+        electionId_candidateId: { electionId, candidateId }
+      }
+    });
+
+    if (!nomination)
+      throw new NotFoundException('Nomination application not found.');
+
+    if (nomination.status !== 'PENDING') {
+      throw new BadRequestException(
+        'Only pending applications can request more info.'
+      );
+    }
+
+    const candidate = await prisma.candidate.findUnique({
+      where: { id: candidateId }
+    });
+
+    if (!candidate) {
+      throw new NotFoundException('Candidate not found');
+    }
+
+    const voter = await prisma.voter.findUnique({
+      where: {
+        walletAddress: candidate.walletAddress
+      }
+    });
+
+    const result = prisma.$transaction(async (tx) => {
+      // Update status -> REQUEST_INFO
+      await tx.selfNomination.update({
+        where: { id: nomination.id },
+        data: {
+          status: 'REQUEST_INFO',
+          adminId: adminId,
+          adminNotes: adminNotes || 'Please provide additional information'
+        }
+      });
+
+      // 2. Create Audit Log
+      return tx.auditLog.create({
+        data: {
+          adminId,
+          action: 'REQUEST_INFO_SELF_NOMINATION',
+          targetType: 'ELECTION',
+          targetId: electionId,
+          details: {
+            candidateId,
+            nominationId: nomination.id,
+            reason: adminNotes || 'Please provide additional information',
+            previousStatus: 'PENDING',
+            newStatus: 'REQUEST_INFO'
+          }
+        }
+      });
+    });
+
+    if (voter?.email) {
+      const html = buildEmailTemplate(
+        'Additional Information Required',
+        `
+        <p>Your nomination requires additional information.</p>
+        <p><b>Admin message:</b></p>
+        <div style="background:#fff3cd;padding:10px;border-radius:5px;">
+          ${adminNotes || 'Please provide more details'}
+        </div>
+        <p>Please update and resubmit your application.</p>
+        `,
+        '#ffc107'
+      );
+
+      await this.mailService.sendMail(
+        voter.email,
+        'More Information Required',
+        html
+      );
+    }
+
+    return result;
+  }
+
+  async resubmitSelfNomination(
+    electionId: string,
+    data: any,
+    file?: Express.Multer.File,
+  ): Promise<
+    SelfNomination & {
+      candidate: Candidate;
+      admin: Admin | null;
+      election: Election;
+    }
+  > {
+    const { walletAddress, studentId, introduction, name, bio } = data;
+
+    const normalizedWallet =
+      this.votingContextService.normalizeWalletAddress(walletAddress);
+
+    const normalizedStudentId =
+      this.votingContextService.normalizeStudentId(studentId);
+
+    // ===== Find candidate =====
+    const candidate =
+      await this.candidateService.findByWalletAddressAndStudentId(
+        normalizedWallet,
+        normalizedStudentId,
+      );
+
+    if (!candidate) {
+      throw new NotFoundException('Candidate profile not found');
+    }
+
+    // ===== Find nomination =====
+    const nomination = await prisma.selfNomination.findUnique({
+      where: {
+        electionId_candidateId: {
+          electionId,
+          candidateId: candidate.id,
+        },
+      },
+    });
+
+    if (!nomination) {
+      throw new NotFoundException('Nomination not found');
+    }
+
+    if (nomination.status !== 'REQUEST_INFO') {
+      throw new BadRequestException(
+        'Only nominations requiring additional information can be resubmitted',
+      );
+    }
+
+    // ===== Upload avatar nếu có =====
+    let avatarUrl = candidate.avatarUrl;
+
+    if (file) {
+      avatarUrl = `/uploads/${file.filename}`;
+    }
+
+    // ===== Update candidate =====
+    await prisma.candidate.update({
+      where: { id: candidate.id },
+      data: {
+        name: name ?? candidate.name,
+        bio: bio ?? candidate.bio,
+        avatarUrl: avatarUrl,
+      },
+    });
+
+    // ===== 5. Update nomination =====
+    return prisma.selfNomination.update({
+      where: { id: nomination.id },
+      data: {
+        introduction: introduction ?? nomination.introduction,
+        status: 'PENDING',
+        adminNotes: null,
+        adminId: null,
+      },
+      include: {
+        candidate: true,
+        admin: true,
+        election: true,
+      },
     });
   }
 

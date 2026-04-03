@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ethers } from 'ethers';
-import { adminService } from '@/lib/api';
+import { adminService } from '@/services/admin.service';
 
 export default function LoginPage() {
     const [studentId, setStudentId] = useState<string>('');

@@ -1,9 +1,18 @@
 // Shared types and interfaces for admin dashboard
 
-export type EventStatus = 'pending' | 'active' | 'ended';
+export type EventStatus = 'pending' | 'active' | 'completed' | 'cancelled';
 export type EventVisibility = 'public' | 'private';
 export type EventType = 'election' | 'poll';
 export type AdminRole = 'SUPER_ADMIN' | 'ELECTION_ADMIN' | 'POLL_ADMIN';
+export type SelfNominationStatus ='PENDING' | 'APPROVED' | 'REJECTED' | 'REQUEST_INFO';
+
+export type SelfNominationFilterStatus =
+  | 'ALL'
+  | SelfNominationStatus;
+
+export interface ManagerProps {
+    role: AdminRole | null;
+}
 
 export interface Election {
     id: string;
@@ -16,6 +25,7 @@ export interface Election {
     endAt?: number;
     candidateIds: string[];
     allowSelfNomination: boolean;
+    voterListFinalized: boolean;
     votes: Record<string, number>;
     createdAt: string;
     updatedAt: string;
@@ -96,6 +106,7 @@ export interface ElectionFormData {
     startAt: string;
     endAt: string;
     allowSelfNomination: boolean;
+    voterListFinalized: boolean;
     candidateIds: string[];
 }
 
@@ -122,3 +133,17 @@ export interface CandidateFormData {
     bio: string;
     walletAddress: string;
 }
+
+export interface SelfNomination {
+    id: string;
+    status: SelfNominationStatus;
+    electionId: string,
+    
+    candidate: Candidate;
+    election: Election;
+    admin?: Admin;
+    introduction?: string;
+    adminNotes?: string;
+    createdAt: string;
+    updatedAt: string;
+};

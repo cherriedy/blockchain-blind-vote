@@ -1,10 +1,12 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Voter, VoterFormData } from '@/lib/types/admin';
-import { adminService } from '@/lib/api';
+import { ManagerProps, Voter, VoterFormData } from '@/lib/types/admin';
+import { adminService } from '@/services/admin.service';
+import { useSnackbar } from '../core/SnackbarContext';
 
-export default function VotersManager({ onError }: any) {
+export default function VotersManager({ role }: ManagerProps) {
+    const { showMessage } = useSnackbar();
     const [voters, setVoters] = useState<Voter[]>([]);
     const [loading, setLoading] = useState(false);
     const [showCreate, setShowCreate] = useState(false);
@@ -15,7 +17,13 @@ export default function VotersManager({ onError }: any) {
             const res = await adminService.getVoters();
             setVoters(res.data);
         } catch (err: any) {
-            onError(err.response?.data?.message || 'Lỗi tải cử tri');
+            console.error(err);
+
+            if (err?.response?.data?.message) {
+                showMessage(err.response.data.message, 'error');
+            } else {
+                showMessage('Something went wrong', 'error');
+            }
         }
         setLoading(false);
     };
@@ -46,7 +54,13 @@ export default function VotersManager({ onError }: any) {
             setShowCreate(false);
             await fetchVoters();
         } catch (err: any) {
-            onError(err.response?.data?.message || 'Lỗi tạo cử tri');
+            console.error(err);
+
+            if (err?.response?.data?.message) {
+                showMessage(err.response.data.message, 'error');
+            } else {
+                showMessage('Something went wrong', 'error');
+            }
         }
     };
 
@@ -67,7 +81,13 @@ export default function VotersManager({ onError }: any) {
                     v.id === id ? { ...v, isActive } : v
                 )
             );
-            onError(err.response?.data?.message || 'Lỗi cập nhật trạng thái');
+            console.error(err);
+
+            if (err?.response?.data?.message) {
+                showMessage(err.response.data.message, 'error');
+            } else {
+                showMessage('Something went wrong', 'error');
+            }
         }
     };
 
@@ -77,7 +97,13 @@ export default function VotersManager({ onError }: any) {
             await adminService.deleteVoter(id);
             await fetchVoters();
         } catch (err: any) {
-            onError(err.response?.data?.message || 'Lỗi xóa cử tri');
+            console.error(err);
+
+            if (err?.response?.data?.message) {
+                showMessage(err.response.data.message, 'error');
+            } else {
+                showMessage('Something went wrong', 'error');
+            }
         }
     };
 

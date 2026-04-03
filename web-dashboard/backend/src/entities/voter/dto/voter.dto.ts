@@ -38,6 +38,14 @@ export class CreateVoterRequestDto {
   @IsNotEmpty()
   name: string;
 
+  @ApiProperty({
+    description: 'Email',
+    example: 'email@gmail.com',
+  })
+  @IsString()
+  @IsNotEmpty()
+  email: string;
+
   @ApiPropertyOptional({
     description:
       'Whether the voter is currently active and eligible to participate.',

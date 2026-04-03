@@ -17,6 +17,7 @@ enum AdminRole {
 enum SelfNominationStatus {
   PENDING
   APPROVED
+  REQUEST_INFO
   REJECTED
 }
 
@@ -29,7 +30,9 @@ model Admin {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
-  event EventAdmin[]
+  event           EventAdmin[]
+  selfNominations SelfNomination[]
+  auditLog        AuditLog[]
 }
 
 model EventAdmin {
@@ -54,6 +57,7 @@ model Voter {
   studentId     String       @unique
   walletAddress String       @unique
   name          String
+  email         String
   isActive      Boolean      @default(true)
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
@@ -86,13 +90,14 @@ model Election {
   candidateIds        String[] @db.ObjectId
   allowSelfNomination Boolean  @default(false)
 
-  isAutomatic Boolean      @default(false)
-  startAt     Float?
-  endAt       Float?
-  votes       Json         @default("{}")
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
-  eventAdmins EventAdmin[]
+  isAutomatic     Boolean          @default(false)
+  startAt         Float?
+  endAt           Float?
+  votes           Json             @default("{}")
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  eventAdmins     EventAdmin[]
+  selfNominations SelfNomination[]
 }
 
 model Poll {
@@ -104,6 +109,7 @@ model Poll {
   isAutomatic Boolean      @default(false)
   startAt     Float?
   endAt       Float?
+  voterListFinalized Boolean @default(false)
   question    String
   options     String[]
   votes       Int[]
@@ -149,8 +155,9 @@ model EventVoter {
 }
 
 model SelfNomination {
-  id         String @id @default(auto()) @map("_id") @db.ObjectId
-  electionId String @db.ObjectId
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  electionId String   @db.ObjectId
+  election   Election @relation(fields: [electionId], references: [id])
 
   candidateId  String    @db.ObjectId
   candidate    Candidate @relation(fields: [candidateId], references: [id])
@@ -158,16 +165,19 @@ model SelfNomination {
 
   status SelfNominationStatus @default(PENDING)
 
-  adminNotes String? // Ghi chú của admin khi từ chối
+  adminId    String?  @db.ObjectId
+  admin      Admin?    @relation(fields: [adminId], references: [id])
+  adminNotes String? // Ghi chú của admin khi từ chối hoặc yêu cầu gửi lại
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
-  @@unique([electionId, candidateId]) // Một người chỉ ứng cử 1 lần vào 1 election
+  @@unique([electionId, candidateId])
 }
 
 model AuditLog {
   id         String   @id @default(auto()) @map("_id") @db.ObjectId
   adminId    String   @db.ObjectId
+  admin      Admin?    @relation(fields: [adminId], references: [id])
   action     String // e.g., "ADD_VOTER", "REMOVE_CANDIDATE", "FINALIZE_VOTERS"
   targetType String // "ELECTION" hoặc "POLL"
   targetId   String // ID of the election or poll

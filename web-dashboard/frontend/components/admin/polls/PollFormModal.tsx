@@ -13,6 +13,7 @@ import AdminManagerSection from '../sections/AdminManagerSection';
 import VoterManagerSection from '../sections/VoterManagerSection';
 
 export default function PollFormModal({
+    role,
     open,
     onClose,
     onSubmit,
@@ -253,6 +254,7 @@ export default function PollFormModal({
                     </div>
 
                     {/* ADMIN */}
+                    {role === 'SUPER_ADMIN' && (
                     <div className="mt-4 border-t pt-4">
                         <AdminManagerSection
                             objectId={initialData?.id}
@@ -263,6 +265,9 @@ export default function PollFormModal({
                             setRemovedAdminIds={setRemovedAdminIds}
                         />
                     </div>
+                    )}
+
+                    {form.visibility === 'private' && (
                     <div className="mt-4 border-t pt-4">
                         <VoterManagerSection
                             objectId={initialData?.id}
@@ -273,6 +278,7 @@ export default function PollFormModal({
                             setRemovedVoterIds={setRemovedVoterIds}
                         />
                     </div>
+                    )}
                 </div>
 
                 {/* FOOTER */}

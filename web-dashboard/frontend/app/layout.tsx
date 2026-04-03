@@ -1,5 +1,13 @@
-import type { Metadata } from 'next';
+import { Inter } from 'next/font/google';
 import '@/styles/globals.css';
+import { SnackbarProvider } from '@/components/core/SnackbarContext';
+import type { Metadata } from 'next';
+
+// Cấu hình font
+const outfit = Inter({
+  subsets: ['latin',],
+  display: 'swap',
+});
 
 export const metadata: Metadata = {
   title: 'Hệ thống Bầu cử - Blind Vote',
@@ -13,10 +21,11 @@ export default function RootLayout({
 }) {
   return (
     <html lang="vi">
-      <head>
-        <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
-      </head>
-      <body cz-shortcut-listen="true">{children}</body>
+      <body className={outfit.className}> 
+        <SnackbarProvider>
+          {children}
+        </SnackbarProvider>
+      </body>
     </html>
   );
 }

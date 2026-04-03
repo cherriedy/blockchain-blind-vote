@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
-import { adminService } from '@/lib/api';
 import { Admin } from '@/lib/types/admin';
+import { adminService } from '@/services/admin.service';
+import { useSnackbar } from '../core/SnackbarContext';
 
-export default function AdminsManager({ onError }: any) {
+export default function AdminsManager() {
+  const { showMessage } = useSnackbar();
   const [admins, setAdmins] = useState<Admin[]>([]);
   const [loading, setLoading] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
@@ -21,7 +23,13 @@ export default function AdminsManager({ onError }: any) {
       const res = await adminService.getAdmins();
       setAdmins(res.data);
     } catch (err: any) {
-      onError(err.response?.data?.message || 'Lỗi tải admin');
+      console.error(err);
+
+      if (err?.response?.data?.message) {
+        showMessage(err.response.data.message, 'error');
+      } else {
+        showMessage('Something went wrong', 'error');
+      }
     }
     setLoading(false);
   };
@@ -38,7 +46,13 @@ export default function AdminsManager({ onError }: any) {
       setShowCreate(false);
       fetchAdmins();
     } catch (err: any) {
-      onError(err.response?.data?.message || 'Lỗi tạo admin');
+      console.error(err);
+
+      if (err?.response?.data?.message) {
+        showMessage(err.response.data.message, 'error');
+      } else {
+        showMessage('Something went wrong', 'error');
+      }
     }
   };
 
@@ -52,7 +66,13 @@ export default function AdminsManager({ onError }: any) {
       setForm({ name: '', walletAddress: '', role: 'ELECTION_ADMIN', isActive: true, });
       fetchAdmins();
     } catch (err: any) {
-      onError(err.response?.data?.message || 'Lỗi cập nhật admin');
+      console.error(err);
+
+      if (err?.response?.data?.message) {
+        showMessage(err.response.data.message, 'error');
+      } else {
+        showMessage('Something went wrong', 'error');
+      }
     }
   };
 
@@ -64,7 +84,13 @@ export default function AdminsManager({ onError }: any) {
       await adminService.deleteAdmin(id);
       fetchAdmins();
     } catch (err: any) {
-      onError(err.response?.data?.message || 'Lỗi xóa admin');
+      console.error(err);
+
+      if (err?.response?.data?.message) {
+        showMessage(err.response.data.message, 'error');
+      } else {
+        showMessage('Something went wrong', 'error');
+      }
     }
   };
 

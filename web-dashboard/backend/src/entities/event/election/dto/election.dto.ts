@@ -15,6 +15,7 @@ import { CreateEventRequestDto } from '../../event.dto';
 import { VotingEventType } from '../../../../enums';
 import { AdminResponseDto } from 'src/entities/admin';
 import { VoterResponseDto } from 'src/entities/voter';
+import { CandidateResponseDto } from 'src/entities/candidate';
 
 /** DTO for creating an election. */
 export class CreateElectionRequestDto extends CreateEventRequestDto {
@@ -37,6 +38,14 @@ export class CreateElectionRequestDto extends CreateEventRequestDto {
   @IsBoolean()
   @IsOptional()
   allowSelfNomination?: boolean;
+
+  @ApiPropertyOptional({
+    description: 'Whether voter list is finalized for this election.',
+    example: false,
+  })
+  @IsBoolean()
+  @IsOptional()
+  voterListFinalized ?: boolean;
 }
 
 /** DTO for updating an election (all fields optional). */
@@ -95,6 +104,22 @@ export class SelfNominateDto {
   introduction?: string;
 }
 
+export class ResubmitSelfNominateDto extends SelfNominateDto{
+  @ApiPropertyOptional({
+    example: 'Nguyen Van A',
+  })
+  @IsOptional()
+  @IsString()
+  name?: string;
+
+  @ApiPropertyOptional({
+    example: 'Tieu su',
+  })
+  @IsOptional()
+  @IsString()
+  bio?: string;
+}
+
 export class EventVoterResponseDto {
   @ApiProperty({ example: '6800a1b2c3d4e5f6a7b8c9d0' })
   id: string;
@@ -148,27 +173,6 @@ export class ElectionCandidateResponseDto {
   updatedAt: Date;
 }
 
-export class SelfNominationResponseDto {
-  @ApiProperty({ example: '65f1c2a3b4d5e6f7a8b9c0d1' })
-  id: string;
-  @ApiProperty({ example: '65f1c2a3b4d5e6f7a8b9c0d2' })
-  electionId: string;
-  @ApiProperty({ example: '65f1c2a3b4d5e6f7a8b9c0d3' })
-  candidateId: string;
-  @ApiPropertyOptional({
-    example: 'A passionate student eager to serve the campus community.',
-  })
-  introduction?: string | null;
-  @ApiProperty({ example: 'PENDING' })
-  status: string;
-  @ApiPropertyOptional({ example: 'Admin notes if rejected.' })
-  adminNotes?: string | null;
-  @ApiProperty({ example: '2026-03-15T08:00:00.000Z' })
-  createdAt: Date;
-  @ApiProperty({ example: '2026-03-15T08:30:00.000Z' })
-  updatedAt: Date;
-}
-
 export class ElectionResponseDto {
   @ApiProperty({ example: '65f1c2a3b4d5e6f7a8b9c0d1' })
   id: string;
@@ -202,6 +206,9 @@ export class ElectionResponseDto {
   @ApiProperty({ example: true })
   allowSelfNomination: boolean;
 
+  @ApiProperty({ example: true })
+  voterListFinalized: boolean;
+
   @ApiProperty({
     type: 'object',
     additionalProperties: { type: 'number' },
@@ -213,6 +220,31 @@ export class ElectionResponseDto {
 
   @ApiProperty({ example: '2026-03-15T08:30:00.000Z' })
   updatedAt: Date;
+}
+
+export class SelfNominationResponseDto {
+  @ApiProperty({ example: '65f1c2a3b4d5e6f7a8b9c0d1' })
+  id: string;
+  @ApiProperty({ example: '65f1c2a3b4d5e6f7a8b9c0d2' })
+  electionId: string;
+  @ApiProperty({ example: '65f1c2a3b4d5e6f7a8b9c0d3' })
+  candidateId: string;
+  @ApiPropertyOptional({
+    example: 'A passionate student eager to serve the campus community.',
+  })
+  introduction?: string | null;
+  @ApiProperty({ example: 'PENDING' })
+  status: string;
+  @ApiPropertyOptional({ example: 'Admin notes if rejected.' })
+  adminNotes?: string | null;
+  @ApiProperty({ example: '2026-03-15T08:00:00.000Z' })
+  createdAt: Date;
+  @ApiProperty({ example: '2026-03-15T08:30:00.000Z' })
+  updatedAt: Date;
+
+  candidate: CandidateResponseDto
+  admin?: AdminResponseDto
+  election: ElectionResponseDto
 }
 
 export class EventAdminResponseDto {
@@ -272,34 +304,15 @@ export class RemoveAdminBodyDto {
   adminId: string;
 }
 
-export class AuditLogResponseDto {
-  @ApiProperty({ example: '65f1c2a3b4d5e6f7a8b9c0d1' })
-  id: string;
-
-  @ApiProperty({ example: '65f1c2a3b4d5e6f7a8b9c0d2', description: 'The ID of the admin who performed the action' })
-  adminId: string;
-
-  @ApiProperty({
-    example: 'APPROVE_SELF_NOMINATION',
-    enum: ['APPROVE_SELF_NOMINATION', 'REJECT_SELF_NOMINATION', 'ADD_VOTER', 'REMOVE_CANDIDATE']
-  })
-  action: string;
-
-  @ApiProperty({ example: 'ELECTION', enum: ['ELECTION', 'POLL'] })
-  targetType: string;
-
-  @ApiProperty({ example: '65f1c2a3b4d5e6f7a8b9c0d3', description: 'ID of the target election/poll' })
-  targetId: string;
-
-  @ApiProperty({
-    description: 'Dynamic JSON details of the action',
-    example: {
-      candidateId: '65f1c2a3b4d5e6f7a8b9c0d4',
-      reason: 'Does not meet requirements'
-    }
-  })
-  details: any;
-
-  @ApiProperty({ example: '2026-04-01T16:00:00.000Z' })
-  createdAt: Date;
+export class RejectSelfNomineeDto {
+  @ApiProperty({ example: 'policy violation'})
+  @IsOptional()
+  @IsString() 
+  adminNotes?: string;
+}
+export class RequestInfoSelfNomineeDto {
+  @ApiProperty({ example: 'We need a clearer portrait photo.'})
+  @IsOptional()
+  @IsString() 
+  adminNotes?: string;
 }

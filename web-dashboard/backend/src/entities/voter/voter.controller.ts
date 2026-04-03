@@ -49,7 +49,8 @@ export class VoterController {
       dto.studentId,
       dto.walletAddress,
       dto.name,
-      dto.isActive,
+      dto.email,
+      dto.isActive
     );
   }
 

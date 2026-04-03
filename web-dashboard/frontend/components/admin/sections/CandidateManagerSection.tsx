@@ -6,7 +6,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { PlusIcon } from 'lucide-react';
 import { Candidate } from '@/lib/types/admin';
-import { adminService } from '@/lib/api';
+import { adminService } from '@/services/admin.service';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 interface Props {
     electionId?: string; // edit mode
@@ -25,6 +26,14 @@ export default function CandidateManagerSection({
 
     const [assignedCandidates, setAssignedCandidates] = useState<Candidate[]>([]);
     const [selfNominees, setSelfNominees] = useState<Candidate[]>([]);
+
+    const [openDialog, setOpenDialog] = useState(false);
+    const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(null);
+    const [actionType, setActionType] = useState<'reject' | 'request'>('reject');
+    const [note, setNote] = useState('');
+
+    const [openDetail, setOpenDetail] = useState(false);
+    const [selectedNominee, setSelectedNominee] = useState<any>(null);
 
     // LOAD
     useEffect(() => {
@@ -89,13 +98,56 @@ export default function CandidateManagerSection({
         loadElectionCandidates(electionId);
     };
 
-    // REJECT
-    const rejectCandidate = async (candidateId: string) => {
-        if (!electionId) return;
+    const handleSubmitFromDialog = async () => {
+        if (!electionId || !selectedCandidateId) return;
 
-        await adminService.rejectSelfNominee(electionId, candidateId);
-        loadElectionCandidates(electionId);
+        if (!note.trim()) {
+            alert('Vui lòng nhập ghi chú');
+            return;
+        }
+
+        try {
+            if (actionType === 'reject') {
+                await adminService.rejectSelfNominee(
+                    electionId,
+                    selectedCandidateId,
+                    note
+                );
+            } else {
+                await adminService.requestInfoSelfNominee(
+                    electionId,
+                    selectedCandidateId,
+                    note
+                );
+            }
+
+            setOpenDialog(false);
+            setNote('');
+            setSelectedCandidateId(null);
+
+            loadElectionCandidates(electionId);
+        } catch (err) {
+            console.error(err);
+            alert('Có lỗi xảy ra');
+        }
     };
+
+    const fetchNomineeDetail = async (candidateId: string) => {
+  if (!electionId) return;
+
+  try {
+    const res = await adminService.getSelfNominees(electionId);
+
+    // tìm đúng candidate
+    const nominee = res.data.find((n: any) => n.candidateId === candidateId);
+
+    setSelectedNominee(nominee);
+    setOpenDetail(true);
+  } catch (err) {
+    console.error(err);
+    alert('Lỗi khi lấy chi tiết');
+  }
+};
 
     return (
         <div className="space-y-4">
@@ -185,19 +237,42 @@ export default function CandidateManagerSection({
                 </p>
                 {selfNominees.length > 0 ? (
                     selfNominees.map((c) => (
-                        <Card key={c.id}>
+                        <Card key={c.id} onClick={() => fetchNomineeDetail(c.id)}
+                            className="cursor-pointer hover:bg-slate-50">
                             <CardContent className="flex justify-between p-3 gap-2">
                                 <span>{c.name}</span>
                                 <div className="flex gap-2">
-                                    <Button size="sm" onClick={() => approveCandidate(c.id)}>
+                                    <Button size="sm"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            approveCandidate(c.id)
+                                        }}>
                                         Duyệt
                                     </Button>
                                     <Button
                                         size="sm"
                                         variant="destructive"
-                                        onClick={() => rejectCandidate(c.id)}
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            setSelectedCandidateId(c.id);
+                                            setActionType('reject');
+                                            setOpenDialog(true);
+                                        }}
                                     >
                                         Từ chối
+                                    </Button>
+
+                                    <Button
+                                        size="sm"
+                                        variant="secondary"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            setSelectedCandidateId(c.id);
+                                            setActionType('request');
+                                            setOpenDialog(true);
+                                        }}
+                                    >
+                                        Yêu cầu bổ sung
                                     </Button>
                                 </div>
                             </CardContent>
@@ -207,6 +282,105 @@ export default function CandidateManagerSection({
                     <p className="text-sm text-center text-slate-400 italic">Chưa có ứng viên tự bầu cử</p>
                 )}
             </div>
+
+            <Dialog open={openDialog} onOpenChange={setOpenDialog}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>
+                            {actionType === 'reject' ? 'Từ chối ứng viên' : 'Yêu cầu bổ sung'}
+                        </DialogTitle>
+                    </DialogHeader>
+
+                    <textarea
+                        placeholder="Nhập ghi chú..."
+                        value={note}
+                        onChange={(e) => setNote(e.target.value)}
+                    />
+
+                    <div className="flex justify-end gap-2 mt-4">
+                        <Button variant="outline" onClick={() => setOpenDialog(false)}>
+                            Hủy
+                        </Button>
+
+                        <Button
+                            variant={actionType === 'reject' ? 'destructive' : 'default'}
+                            onClick={handleSubmitFromDialog}
+                        >
+                            Xác nhận
+                        </Button>
+                    </div>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog open={openDetail} onOpenChange={setOpenDetail}>
+                <DialogContent className="max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>Thông tin ứng viên</DialogTitle>
+                    </DialogHeader>
+
+                    {selectedNominee && (
+                        <div className="space-y-4">
+
+                            {/* Avatar + name */}
+                            <div className="flex items-center gap-3">
+                                {selectedNominee?.candidate && (
+                                <img
+                                    src={
+                                        selectedNominee?.candidate?.avatarUrl?.startsWith('http')
+                                            ? selectedNominee.candidate.avatarUrl
+                                            : `${process.env.NEXT_PUBLIC_BACKEND_URL}${selectedNominee.candidate.avatarUrl}`
+                                    }
+                                    alt="avatar"
+                                    className="w-12 h-12
+                                     rounded-full object-cover"
+                                />
+                                )}
+                                <div>
+                                    <p className="font-semibold">{selectedNominee.candidate?.name}</p>
+                                    <p className="text-xs text-gray-500">
+                                        MSSV: {selectedNominee.candidate?.studentId}
+                                    </p>
+                                </div>
+                            </div>
+
+                            {/* Bio */}
+                            <div>
+                                <p className="text-sm font-medium">Giới thiệu:</p>
+                                <p className="text-sm text-gray-600">
+                                    {selectedNominee.introduction || 'Không có'}
+                                </p>
+                            </div>
+
+                            {/* CreatedAt */}
+                            <div>
+                                <p className="text-sm font-medium">Ngày đăng ký:</p>
+                                <p className="text-sm text-gray-600">
+                                    {new Date(selectedNominee.createdAt).toLocaleString()}
+                                </p>
+                            </div>
+
+                            {/* Status */}
+                            <div>
+                                <p className="text-sm font-medium">Trạng thái:</p>
+                                <span className="text-xs px-2 py-1 bg-orange-100 text-orange-600 rounded">
+                                    {selectedNominee.status}
+                                </span>
+                            </div>
+
+                            {/* Admin note (nếu có) */}
+                            {selectedNominee.adminNotes && (
+                                <div>
+                                    <p className="text-sm font-medium">Ghi chú admin:</p>
+                                    <p className="text-sm text-red-500">
+                                        {selectedNominee.adminNotes}
+                                    </p>
+                                </div>
+                            )}
+
+                        </div>
+                    )}
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }

@@ -1,10 +1,12 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Candidate, CandidateFormData } from '@/lib/types/admin';
-import { adminService } from '@/lib/api';;
+import { Candidate, CandidateFormData, ManagerProps } from '@/lib/types/admin';
+import { adminService } from '@/services/admin.service';
+import { useSnackbar } from '../core/SnackbarContext';
 
-export default function CandidatesManager({ onError }: any) {
+export default function CandidatesManager({ role }: ManagerProps) {
+    const { showMessage } = useSnackbar();
     const [candidates, setCandidates] = useState<Candidate[]>([]);
     const [showCreate, setShowCreate] = useState(false);
     const [loading, setLoading] = useState(false);
@@ -16,7 +18,13 @@ export default function CandidatesManager({ onError }: any) {
             const res = await adminService.getCandidates();
             setCandidates(res.data);
         } catch (err: any) {
-            onError(err.response?.data?.message || 'Lỗi tải cử tri');
+            console.error(err);
+
+            if (err?.response?.data?.message) {
+                showMessage(err.response.data.message, 'error');
+            } else {
+                showMessage('Something went wrong', 'error');
+            }
         }
         setLoading(false);
     };
@@ -49,7 +57,13 @@ export default function CandidatesManager({ onError }: any) {
             setShowCreate(false);
             await fetchCandidates();
         } catch (err: any) {
-            onError(err.response?.data?.message || 'Lỗi tạo ứng viên');
+            console.error(err);
+
+            if (err?.response?.data?.message) {
+                showMessage(err.response.data.message, 'error');
+            } else {
+                showMessage('Something went wrong', 'error');
+            }
         }
     };
 
@@ -67,7 +81,13 @@ export default function CandidatesManager({ onError }: any) {
 
             await fetchCandidates();
         } catch (err: any) {
-            onError(err.response?.data?.message || 'Lỗi cập nhật ứng viên');
+            console.error(err);
+
+            if (err?.response?.data?.message) {
+                showMessage(err.response.data.message, 'error');
+            } else {
+                showMessage('Something went wrong', 'error');
+            }
         }
     };
 
@@ -77,7 +97,13 @@ export default function CandidatesManager({ onError }: any) {
             await adminService.deleteCandidate(id);
             await fetchCandidates();
         } catch (err: any) {
-            onError(err.response?.data?.message || 'Lỗi xóa ứng viên');
+            console.error(err);
+
+            if (err?.response?.data?.message) {
+                showMessage(err.response.data.message, 'error');
+            } else {
+                showMessage('Something went wrong', 'error');
+            }
         }
     };
 
@@ -161,7 +187,12 @@ export default function CandidatesManager({ onError }: any) {
                 </div>
             )}
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {loading ? (
+                <div className="h-64 flex flex-col items-center justify-center">
+                    <div className="w-10 h-10 border-4 border-slate-300 border-t-slate-900 rounded-full animate-spin mb-4"></div>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Đang tải...</p>
+                </div>
+            ) : (<div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
                 {candidates.length === 0 ? (
                     <p className="col-span-full text-center text-slate-500 italic py-8">Chưa có ứng viên nào</p>
                 ) : (
@@ -172,7 +203,11 @@ export default function CandidatesManager({ onError }: any) {
                         >
                             {candidate.avatarUrl && (
                                 <img
-                                    src={candidate.avatarUrl}
+                                    src={
+                                        candidate.avatarUrl?.startsWith('http')
+                                            ? candidate.avatarUrl
+                                            : `${process.env.NEXT_PUBLIC_BACKEND_URL}${candidate.avatarUrl}`
+                                    }
                                     alt={candidate.name}
                                     className="w-full aspect-square rounded-xl mb-3 object-cover"
                                 />
@@ -212,6 +247,7 @@ export default function CandidatesManager({ onError }: any) {
                     ))
                 )}
             </div>
+            )}
         </div>
     );
 }

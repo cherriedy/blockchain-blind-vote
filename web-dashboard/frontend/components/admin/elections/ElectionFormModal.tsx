@@ -4,13 +4,14 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useEffect, useState } from 'react';
-import { Admin, Election, ElectionFormData, EventVisibility, Voter } from '@/lib/types/admin';
+import { Admin, AdminRole, Election, ElectionFormData, EventVisibility, Voter } from '@/lib/types/admin';
 import AdminManagerSection from '../sections/AdminManagerSection';
 import VoterManagerSection from '../sections/VoterManagerSection';
 import CandidateManagerSection from '../sections/CandidateManagerSection';
 
 
 interface ElectionFormModalProps {
+    role: AdminRole,
     open: boolean;
     onClose: () => void;
     onSubmit: (data: any) => void;
@@ -19,6 +20,7 @@ interface ElectionFormModalProps {
 }
 
 export default function ElectionFormModal({
+    role,
     open,
     onClose,
     onSubmit,
@@ -39,6 +41,7 @@ export default function ElectionFormModal({
         startAt: '',
         endAt: '',
         allowSelfNomination: false,
+        voterListFinalized: false,
         candidateIds: [] as string[],
     });
 
@@ -60,6 +63,7 @@ export default function ElectionFormModal({
                     startAt: initialData.startAt ? new Date(initialData.startAt).toISOString().slice(0, 16) : '',
                     endAt: initialData.endAt ? new Date(initialData.endAt).toISOString().slice(0, 16) : '',
                     allowSelfNomination: initialData.allowSelfNomination,
+                    voterListFinalized: initialData.voterListFinalized,
                     candidateIds: initialData.candidateIds || [],
                 });
 
@@ -72,6 +76,7 @@ export default function ElectionFormModal({
                     startAt: '',
                     endAt: '',
                     allowSelfNomination: false,
+                    voterListFinalized: false,
                     candidateIds: [],
                 });
             }
@@ -121,8 +126,7 @@ export default function ElectionFormModal({
                     {/* Settings */}
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
-
-                            <p className="text-sm font-semibold text-slate-700">Chế độ hiển thị</p>
+                            <p className="text-sm font-semibold text-slate-700">Chế độ</p>
                             <select
                                 value={form.visibility}
                                 onChange={(e) =>
@@ -167,14 +171,14 @@ export default function ElectionFormModal({
                             <div className="grid grid-cols-2 gap-4">
                                 <Input
                                     type="datetime-local"
-                                    value={form.startAt}
+                                    value={form.startAt || ''}
                                     onChange={(e) =>
                                         setForm({ ...form, startAt: e.target.value })
                                     }
                                 />
                                 <Input
                                     type="datetime-local"
-                                    value={form.endAt}
+                                    value={form.endAt || ''}
                                     onChange={(e) =>
                                         setForm({ ...form, endAt: e.target.value })
                                     }
@@ -183,32 +187,52 @@ export default function ElectionFormModal({
                         )}
                     </div>
 
+                    {/* Admin */}
+                    {role === 'SUPER_ADMIN' && (
+                        <div className="mt-4 border-t pt-4 space-y-6">
+                            <AdminManagerSection
+                                objectId={initialData?.id}
+                                objectType="ELECTION"
+                                addedAdmins={selectedAdmins}
+                                setAddedAdmins={setSelectedAdmins}
+                                removedAdminIds={removedAdminIds}
+                                setRemovedAdminIds={setRemovedAdminIds}
+                            />
+                        </div>
+                    )}
+
                     {/* Candidate */}
-                    <CandidateManagerSection
-                        electionId={initialData?.id}
-                        form={form}
-                        setForm={setForm}
-                    />
-
                     <div className="mt-4 border-t pt-4 space-y-6">
-                        <AdminManagerSection
-                            objectId={initialData?.id}
-                            objectType="ELECTION"
-                            addedAdmins={selectedAdmins}
-                            setAddedAdmins={setSelectedAdmins}
-                            removedAdminIds={removedAdminIds}
-                            setRemovedAdminIds={setRemovedAdminIds}
+                        <CandidateManagerSection
+                            electionId={initialData?.id}
+                            form={form}
+                            setForm={setForm}
                         />
+                    </div>
 
-                        <VoterManagerSection
-                            objectId={initialData?.id}
-                            objectType="ELECTION"
-                            addedVoters={selectedVoters}
-                            setAddedVoters={setSelectedVoters}
-                            removedVoterIds={removedVoterIds}
-                            setRemovedVoterIds={setRemovedVoterIds}
-                        />
-
+                    {form.visibility === 'private' && (
+                        <div className="mt-4 border-t pt-4 space-y-6">
+                            <VoterManagerSection
+                                objectId={initialData?.id}
+                                objectType="ELECTION"
+                                addedVoters={selectedVoters}
+                                setAddedVoters={setSelectedVoters}
+                                removedVoterIds={removedVoterIds}
+                                setRemovedVoterIds={setRemovedVoterIds}
+                            />
+                        </div>
+                    )}
+                    <div className="space-y-2">
+                        <div className="flex items-center gap-2 h-10">
+                            <input
+                                type="checkbox"
+                                checked={form.voterListFinalized}
+                                onChange={(e) =>
+                                    setForm({ ...form, voterListFinalized: e.target.checked })
+                                }
+                            />
+                            <span className="text-sm">Khóa bầu cử</span>
+                        </div>
                     </div>
                 </div>
 

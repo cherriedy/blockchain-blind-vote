@@ -1,12 +1,14 @@
-import { AuditLog, Candidate, Election, SelfNomination } from '@prisma/client';
+import { AuditLog, Candidate, Election, Prisma, SelfNomination } from '@prisma/client';
 import {
   ElectionResponseDto,
   ElectionCandidateResponseDto,
   ElectionCandidatesResponseDto,
   ActionMessageResponseDto,
   SelfNominationResponseDto,
-  AuditLogResponseDto,
 } from './election.dto';
+import { toCandidateResponseDto } from 'src/entities/candidate';
+import { toAdminResponseDto } from 'src/entities/admin';
+import { AuditLogResponseDto } from 'src/entities/audit-log/dto/log.dto';
 
 export const toElectionResponseDto = (
   election: Election,
@@ -21,7 +23,8 @@ export const toElectionResponseDto = (
   endAt: election.endAt,
   candidateIds: election.candidateIds,
   allowSelfNomination: election.allowSelfNomination,
-  votes: election.votes as Record<string, number>,
+  voterListFinalized: election.voterListFinalized,
+  votes: (election.votes || {} )as Record<string, number>,
   createdAt: election.createdAt,
   updatedAt: election.updatedAt,
 });
@@ -57,8 +60,12 @@ export const toActionMessageResponseDto = (
   message,
 });
 
+type SelfNominationWithCandidate = Prisma.SelfNominationGetPayload<{
+  include: { candidate: true, admin?: true, election: true };
+}>;
+
 export const toSelfNominationResponseDto = (
-  selfNomination: SelfNomination,
+  selfNomination: SelfNominationWithCandidate,
 ): SelfNominationResponseDto => ({
   id: selfNomination.id,
   electionId: selfNomination.electionId,
@@ -68,15 +75,10 @@ export const toSelfNominationResponseDto = (
   adminNotes: selfNomination.adminNotes,
   createdAt: selfNomination.createdAt,
   updatedAt: selfNomination.updatedAt,
-});
 
-
-export const toAuditLogResponseDto = (log: AuditLog): AuditLogResponseDto => ({
-  id: log.id,
-  adminId: log.adminId,
-  action: log.action,
-  targetType: log.targetType,
-  targetId: log.targetId,
-  details: log.details,
-  createdAt: log.createdAt,
+  candidate: toCandidateResponseDto(selfNomination.candidate),
+  admin: selfNomination.admin
+    ? toAdminResponseDto(selfNomination.admin)
+    : undefined,
+  election: toElectionResponseDto(selfNomination.election),
 });

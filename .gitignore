@@ -20,7 +20,8 @@ tmp/
 temp/
 .cache/
 .cache-loader/
-*.tsbuildinfo
+*.tsbuildinfo'
+uploads/
 
 # Hardhat
 blockchain/artifacts/

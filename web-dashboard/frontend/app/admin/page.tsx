@@ -1,30 +1,25 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import ElectionsManager from '@/components/admin/elections/ElectionsManager';
 import PollsManager from '@/components/admin/polls/PollsManager';
 import VotersManager from '@/components/admin/VotersManager';
 import CandidatesManager from '@/components/admin/CandidatesManager';
-import OverviewTab from '@/components/admin/OverviewTab';
-import { Election, Poll, Voter, Candidate, AdminRole, Admin } from '@/lib/types/admin';
-import { adminService } from '@/lib/api';
+import { AdminRole, Admin } from '@/lib/types/admin';
 import AdminsManager from '@/components/admin/AdminsManager';
+import { adminService } from '@/services/admin.service';
+import SelfNominationManager from '@/components/admin/self-nominations/SelfNominationManager';
+import { useSnackbar } from '@/components/core/SnackbarContext';
+import AuditLogManager from '@/components/admin/AuditLogManager';
 
 export default function AdminDashboard() {
   const router = useRouter();
   const [role, setRole] = useState<AdminRole | null>(null);
   const [admin, setAdmin] = useState<Admin>();
-  const [activeTab, setActiveTab] = useState<string>('overview');
-  const [elections, setElections] = useState<Election[]>([]);
-  const [polls, setPolls] = useState<Poll[]>([]);
-  const [voters, setVoters] = useState<Voter[]>([]);
-  const [candidates, setCandidates] = useState<Candidate[]>([]);
-  const [admins, setAdmins] = useState<any[]>([]);
+  const [activeTab, setActiveTab] = useState<string>('self-nomination');
   const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string>('');
 
-  // Load data on mount
   useEffect(() => {
     const checkAuth = async () => {
       try {
@@ -35,8 +30,6 @@ export default function AdminDashboard() {
         // Mặc định tab cho từng role nếu không phải Super
         if (res.data.role === 'ELECTION_ADMIN') setActiveTab('elections');
         if (res.data.role === 'POLL_ADMIN') setActiveTab('polls');
-
-        fetchAllData(res.data.role);
 
       } catch (err) {
         router.replace('/login');
@@ -51,79 +44,12 @@ export default function AdminDashboard() {
   const canSeeTab = (tabName: string) => {
     if (role === 'SUPER_ADMIN') return true;
     if (role === 'ELECTION_ADMIN') {
-      return ['elections', 'voters', 'candidates'].includes(tabName);
+      return ['self-nomination, elections', 'voters', 'candidates'].includes(tabName);
     }
     if (role === 'POLL_ADMIN') {
-      return ['polls', 'voters', 'candidates'].includes(tabName);
+      return ['self-nomination, polls', 'voters', 'candidates'].includes(tabName);
     }
     return false;
-  };
-
-  const fetchAllData = useCallback(async (currentRole?: AdminRole) => {
-    const r = currentRole || role;
-    setLoading(true);
-    setError('');
-    try {
-      const isElectionAdmin = r === 'ELECTION_ADMIN';
-      const isPollAdmin = r === 'POLL_ADMIN';
-
-      const [electionsRes, pollsRes, votersRes, candidatesRes, adminsRes] = await Promise.allSettled([
-        isElectionAdmin
-          ? adminService.getMyElections()
-          : adminService.getElections(),
-
-        isPollAdmin
-          ? adminService.getMyPolls()
-          : adminService.getPolls(),
-
-        adminService.getVoters(),
-        adminService.getCandidates(),
-        adminService.getAdmins(),
-      ]);
-
-      if (electionsRes.status === 'fulfilled') {
-        setElections(electionsRes.value.data ?? []);
-      } else {
-        console.error('Elections fetch failed', electionsRes.reason);
-      }
-
-      if (pollsRes.status === 'fulfilled') {
-        setPolls(pollsRes.value.data ?? []);
-      } else {
-        console.error('Polls fetch failed', pollsRes.reason);
-      }
-
-      if (votersRes.status === 'fulfilled') {
-        setVoters(votersRes.value.data ?? []);
-      } else {
-        console.error('Voters fetch failed', votersRes.reason);
-      }
-
-      if (candidatesRes.status === 'fulfilled') {
-        setCandidates(candidatesRes.value.data ?? []);
-      } else {
-        console.error('Candidates fetch failed', candidatesRes.reason);
-      }
-
-      if (adminsRes.status === 'fulfilled') {
-        setAdmins(adminsRes.value.data ?? []);
-      } else {
-        console.error('Admins fetch failed', adminsRes.reason);
-      }
-
-    } catch (err: any) {
-      setError('Không thể tải dữ liệu từ máy chủ.');
-      console.error(err);
-    }
-    setLoading(false);
-  }, [role]);
-
-  const handleRefresh = async () => {
-    await fetchAllData();
-  };
-
-  const handleError = (errorMsg: string) => {
-    setError(errorMsg);
   };
 
   return (
@@ -166,12 +92,6 @@ export default function AdminDashboard() {
       </header>
 
       <main className="max-w-7xl mx-auto px-6 py-10">
-        {error && (
-          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl text-red-600 text-sm font-medium">
-            {error}
-          </div>
-        )}
-
         {loading ? (
           <div className="h-64 flex flex-col items-center justify-center">
             <div className="w-10 h-10 border-4 border-slate-300 border-t-slate-900 rounded-full animate-spin mb-4"></div>
@@ -182,7 +102,7 @@ export default function AdminDashboard() {
             {/* ── Tabs ── */}
             <div className="flex items-center gap-2 mb-8 overflow-x-auto pb-2">
               {role === 'SUPER_ADMIN' && (
-                <TabButton active={activeTab === 'overview'} onClick={() => setActiveTab('overview')} label="Tổng quan" />
+                <TabButton active={activeTab === 'self-nomination'} onClick={() => setActiveTab('self-nomination')} label="Tự ứng cử" />
               )}
 
               {canSeeTab('elections') && (
@@ -202,17 +122,21 @@ export default function AdminDashboard() {
               )}
 
               {role === 'SUPER_ADMIN' && (
-                <TabButton active={activeTab === 'admins'} onClick={() => setActiveTab('admins')} label="Quản trị viên" />
+                <>
+                  <TabButton active={activeTab === 'admins'} onClick={() => setActiveTab('admins')} label="Quản trị viên" />
+                  <TabButton active={activeTab === 'audit-logs'} onClick={() => setActiveTab('audit-logs')} label="Lịch sử hoạt động" />
+                </>
               )}
             </div>
 
             <div className="tab-content">
-              {activeTab === 'overview' && role === 'SUPER_ADMIN' && <OverviewTab elections={elections} polls={polls} voters={voters} candidates={candidates} />}
-              {activeTab === 'elections' && canSeeTab('elections') && <ElectionsManager role={role} onError={handleError} />}
-              {activeTab === 'polls' && canSeeTab('polls') && <PollsManager role={role} onError={handleError} />}
-              {activeTab === 'voters' && canSeeTab('voters') && <VotersManager role={role} onError={handleError} />}
-              {activeTab === 'candidates' && canSeeTab('candidates') && <CandidatesManager role={role} onError={handleError} />}
-              {activeTab === 'admins' && role === 'SUPER_ADMIN' && <AdminsManager admins={admins} onRefresh={handleRefresh} onError={handleError} />}
+              {activeTab === 'self-nomination' && canSeeTab('self-nomination') && <SelfNominationManager role={role} />}
+              {activeTab === 'elections' && canSeeTab('elections') && <ElectionsManager role={role} />}
+              {activeTab === 'polls' && canSeeTab('polls') && <PollsManager role={role} />}
+              {activeTab === 'voters' && canSeeTab('voters') && <VotersManager role={role} />}
+              {activeTab === 'candidates' && canSeeTab('candidates') && <CandidatesManager role={role} />}
+              {activeTab === 'admins' && role === 'SUPER_ADMIN' && <AdminsManager />}
+              {activeTab === 'audit-logs' && role === 'SUPER_ADMIN' && <AuditLogManager />}
             </div>
           </>
         )}

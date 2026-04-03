@@ -48,6 +48,7 @@ async function main() {
         studentId: '2254810059',
         walletAddress: '0x0b9392f828396fae906330f352eb9db5e387ec01',
         name: 'Ho Dinh Huy',
+        email: 'nn17101945@gmail.com',
         isActive: true,
       },
     });

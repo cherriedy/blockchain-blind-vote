@@ -34,6 +34,14 @@ export class CandidateService {
     return candidate;
   }
 
+  async getByWallet(walletAddress: string) {
+    const normalizedWallet = walletAddress.toLowerCase();
+
+    return prisma.candidate.findUnique({
+      where: { walletAddress: normalizedWallet },
+    });
+  }
+
   async create(data: CreateCandidateRequestDto) {
     const normalizedWallet = this.votingContextService.normalizeWalletAddress(
       data.walletAddress,

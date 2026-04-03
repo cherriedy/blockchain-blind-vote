@@ -1,29 +1,28 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import axios from 'axios';
 import StatusBadge from './StatusBadge';
 import CandidateList from './CandidateList';
 import { formatDatetime } from '@/lib/format';
-
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001';
+import { publicApiService } from '@/services/public.service';
 
 export default function DetailModal({ item, type, onClose }: { item: any; type: 'election' | 'poll' | null; onClose: () => void }) {
     const router = useRouter();
     const [candidates, setCandidates] = useState({ assigned: [], selfNominated: [] });
     const [candidatesLoading, setCandidatesLoading] = useState(false);
     const [candidatesError, setCandidatesError] = useState('');
+    const [showSelfNominateModal, setShowSelfNominateModal] = useState(false);
+    const [intro, setIntro] = useState('');
 
     const isElection = type === 'election';
 
-    // Fetch candidates whenever an election modal opens
     useEffect(() => {
         if (!item || !isElection) return;
-        
+
         let isMounted = true;
         const fetchCandidates = async () => {
             if (isMounted) setCandidatesLoading(true);
             try {
-                const res = await axios.get(`${BACKEND_URL}/api/elections/${item.id}/candidates`);
+                const res = await publicApiService.getElectionCandidates(item.id);
                 if (isMounted) {
                     setCandidates(res.data ?? { assigned: [], selfNominated: [] });
                     setCandidatesError('');
@@ -48,6 +47,48 @@ export default function DetailModal({ item, type, onClose }: { item: any; type: 
     const totalVotes = isElection
         ? Object.values(item.votes ?? {}).reduce((a: number, b: any) => a + Number(b), 0)
         : (Array.isArray(item.votes) ? item.votes.reduce((a: number, b: any) => a + Number(b), 0) : 0);
+
+
+    const handleSelfNominate = async () => {
+        try {
+            const wallet = localStorage.getItem('walletAddress');
+
+            const res = await publicApiService.getMyCandidate(wallet!);
+
+            if (!res.data) {
+                alert('Bạn chưa đăng ký ứng viên');
+                router.push('/candidate/register');
+                return;
+            }
+            setShowSelfNominateModal(true);
+
+        } catch {
+            alert('Lỗi kiểm tra ứng viên');
+        }
+    };
+
+    const submitSelfNomination = async () => {
+        try {
+            const walletAddress = localStorage.getItem('walletAddress');
+            const studentId = localStorage.getItem('studentId');
+
+            if (!walletAddress || !studentId) {
+                return;
+            }
+
+            await publicApiService.selfNominate(item.id, {
+                walletAddress,
+                studentId,
+                introduction: intro,
+            });
+
+            alert('Nộp đơn thành công');
+            setShowSelfNominateModal(false);
+
+        } catch (err: any) {
+            alert(err?.response?.data?.message || 'Lỗi');
+        }
+    };
 
     return (
         <div
@@ -106,6 +147,36 @@ export default function DetailModal({ item, type, onClose }: { item: any; type: 
                             <div>
                                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Câu hỏi</p>
                                 <p className="text-base font-bold text-slate-700 italic bg-indigo-50 p-4 rounded-xl">{item.question}</p>
+                            </div>
+                        )}
+
+                        {isElection && item.status === 'pending' && item.allowSelfNomination && (
+                            <button
+                                onClick={handleSelfNominate}
+                                className="px-4 py-2 bg-green-600 text-white rounded-xl text-xs font-bold"
+                            >
+                                Tự ứng cử
+                            </button>
+                        )}
+
+                        {showSelfNominateModal && (
+                            <div className="fixed inset-0 bg-black/40 flex items-center justify-center">
+                                <div className="bg-white p-6 rounded-xl w-96">
+                                    <h3 className="font-bold mb-3">Giới thiệu bản thân</h3>
+
+                                    <textarea
+                                        value={intro}
+                                        onChange={(e) => setIntro(e.target.value)}
+                                        className="w-full border p-2 rounded"
+                                    />
+
+                                    <button
+                                        onClick={submitSelfNomination}
+                                        className="mt-3 bg-blue-600 text-white px-4 py-2 rounded"
+                                    >
+                                        Nộp đơn
+                                    </button>
+                                </div>
                             </div>
                         )}
                     </div>
@@ -197,11 +268,10 @@ export default function DetailModal({ item, type, onClose }: { item: any; type: 
                                 onClose();
                                 router.push(`/vote?voteType=${isElection ? 'election' : 'poll'}&voteId=${item.id}`);
                             }}
-                            className={`shrink-0 px-5 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest text-white transition-all active:scale-95 shadow-lg ${
-                                isElection
-                                    ? 'bg-blue-600 hover:bg-blue-700 shadow-blue-900/20'
-                                    : 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-900/20'
-                            }`}
+                            className={`shrink-0 px-5 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest text-white transition-all active:scale-95 shadow-lg ${isElection
+                                ? 'bg-blue-600 hover:bg-blue-700 shadow-blue-900/20'
+                                : 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-900/20'
+                                }`}
                         >
                             Bỏ phiếu ngay →
                         </button>

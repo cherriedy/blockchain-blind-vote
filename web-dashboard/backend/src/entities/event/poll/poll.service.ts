@@ -184,6 +184,28 @@ export class PollService {
     const existing = await prisma.poll.findUnique({ where: { id } });
     if (!existing) throw new NotFoundException('Poll not found');
 
+    if (existing.status !== 'pending') {
+      throw new BadRequestException('Only poll with status PENDING can be updated');
+    }
+
+    if (existing.voterListFinalized) {
+      throw new BadRequestException('Cannot update poll after voter list has been finalized');
+    }
+
+    if (data.visibility === 'public') {
+      const voters = await this.listVoters(id);
+      if (voters.length > 0) {
+        const voterIds = voters.map(v => v.voterId);
+        await prisma.eventVoter.deleteMany({
+          where: {
+            voteId: id,
+            voterId: { in: voterIds },
+            voteType: VotingEventType.POLL,
+          },
+        });
+      }
+    }
+
     return prisma.poll.update({ where: { id }, data });
   }
 
@@ -194,11 +216,34 @@ export class PollService {
    * @throws NotFoundException if the poll does not exist.
    */
   async delete(id: string): Promise<Poll> {
-    const existing = await prisma.poll.findUnique({ where: { id } });
-    if (!existing) throw new NotFoundException('Poll not found');
-
-    return prisma.poll.delete({ where: { id } });
-  }
+      const poll = await prisma.poll.findUnique({
+        where: { id }
+      });
+  
+      if (!poll) {
+        throw new NotFoundException("Poll not found");
+      }
+  
+      if (poll.status !== "pending") {
+        throw new BadRequestException(
+          "Cannot delete poll that is ongoing or ended"
+        );
+      }
+  
+      if (poll.votes && Object.keys(poll.votes).length > 0) {
+        throw new BadRequestException(
+          "Cannot delete poll with votes"
+        );
+      }
+  
+      await prisma.eventAdmin.deleteMany({
+        where: { voteId: id, voteType: 'POLL'}
+      });
+  
+      return prisma.poll.delete({
+        where: { id }
+      });
+    }
 
   /**
    * List all voters assigned to a poll.
@@ -228,6 +273,12 @@ export class PollService {
   ): Promise<any> {
     const existing = await prisma.poll.findUnique({ where: { id } });
     if (!existing) throw new NotFoundException('Poll not found');
+
+    if (existing.visibility === 'public') {
+      throw new BadRequestException(
+        'Cannot assign voters to a public poll',
+      );
+    }
 
     const existingVoters = await prisma.voter.findMany({
       where: { id: { in: voterIds } },

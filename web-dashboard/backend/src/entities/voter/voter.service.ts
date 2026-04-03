@@ -45,6 +45,7 @@ export class VoterService {
     studentId: string,
     walletAddress: string,
     name: string,
+    email: string,
     isActive = true,
   ): Promise<{ message: string; voterId: string }> {
     const normalizedStudentId =
@@ -72,6 +73,7 @@ export class VoterService {
         studentId: normalizedStudentId,
         walletAddress: normalizedWallet,
         name,
+        email,
         isActive,
       },
     });

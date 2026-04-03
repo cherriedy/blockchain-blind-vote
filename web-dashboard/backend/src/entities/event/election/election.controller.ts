@@ -13,6 +13,9 @@ import {
   Req,
   Patch,
   Request,
+  BadRequestException,
+  UseInterceptors,
+  UploadedFile,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -20,6 +23,7 @@ import {
   ApiResponse,
   ApiParam,
   ApiBody,
+  ApiQuery,
 } from '@nestjs/swagger';
 import { ElectionService } from './election.service';
 import {
@@ -36,8 +40,9 @@ import {
   AssignAdminBodyDto,
   SelfNominationResponseDto,
   toSelfNominationResponseDto,
-  AuditLogResponseDto,
-  toAuditLogResponseDto,
+  RejectSelfNomineeDto,
+  RequestInfoSelfNomineeDto,
+  ResubmitSelfNominateDto,
 } from './dto';
 import { ManagedElection, Public, Roles } from '../../../shared';
 import {
@@ -49,12 +54,15 @@ import {
 import {
   AssignVoterBodyDto,
   RemoveVoterBodyDto,
-  toEventVoterResponseDto,
   toEventVoterResponseDtos,
 } from '../voter';
-import { AdminRole, Election } from '@prisma/client';
+import { AdminRole, Election, SelfNominationStatus } from '@prisma/client';
 import { AdminResponseDto, toAdminResponseDto } from 'src/entities/admin';
 import { ElectionPermissionGuard } from 'src/shared/guards/election-permission.guard';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { diskStorage } from 'multer';
+import { AuditLogResponseDto } from 'src/entities/audit-log/dto/log.dto';
+import { toAuditLogResponseDto } from 'src/entities/audit-log/dto/log.mapper';
 
 @ApiTags('Elections')
 @Controller('elections')
@@ -70,7 +78,7 @@ export class ElectionController {
   @Get('eligible')
   @Public()
   @ApiOperation({
-    summary: 'Get eligible elections for a voter',
+    summary: 'Get eligible elections for a voter (public)',
     description:
       'Returns all elections the voter is assigned to. ' +
       'Identified by walletAddress and studentId query parameters.',
@@ -91,6 +99,70 @@ export class ElectionController {
       studentId,
     );
     return toElectionResponseDtos(elections);
+  }
+
+  @Get('my-self-nominations')
+  @Public()
+  @ApiOperation({ summary: 'Get my self-nomination by walletAddress and studentId (public)' })
+  @ApiQuery({ name: 'walletAddress', required: true, type: String })
+  @ApiQuery({ name: 'studentId', required: true, type: String })
+  @ApiResponse({
+    status: 200,
+    description: 'My self-nominations',
+    type: [SelfNominationResponseDto],
+  })
+  async getMySelfNominations(
+    @Query('walletAddress') walletAddress: string,
+    @Query('studentId') studentId: string,
+  ): Promise<SelfNominationResponseDto[]> {
+    if (!walletAddress) {
+      throw new BadRequestException('walletAddress is required');
+    }
+    if (!studentId) {
+      throw new BadRequestException('studentId is required');
+    }
+    const result = await this.electionService.getMySelfNominations(
+      walletAddress,
+      studentId
+    );
+
+    return result.map(toSelfNominationResponseDto);
+  }
+
+  @Get('public')
+  @Public()
+  @ApiOperation({ summary: 'Get all public elections (public)' })
+  @ApiResponse({
+    status: 200,
+    description: 'List of public elections.',
+    type: ElectionResponseDto,
+    isArray: true,
+  })
+  async getPublicElections(
+    @Query('walletAddress') walletAddress: string,
+    @Query('studentId') studentId: string,
+  ): Promise<ElectionResponseDto[]> {
+    const elections = await this.electionService.getPublicElections(
+      walletAddress,
+      studentId
+    );
+    return toElectionResponseDtos(elections);
+  }
+
+  // GET: /self-nominees
+  @Get('/self-nominees')
+  @Roles(AdminRole.SUPER_ADMIN)
+  @ApiOperation({ summary: 'Get all self-nominations' })
+  @ApiResponse({
+    status: 200,
+    description: 'All self-nominations retrieved.',
+    type: [SelfNominationResponseDto],
+  })
+  async getAllSelfNominees(
+    @Query('status') status?: SelfNominationStatus
+  ): Promise<SelfNominationResponseDto[]> {
+    const data = await this.electionService.getAllSelfNominations(status);
+    return data.map(toSelfNominationResponseDto);
   }
 
   // GET: /elections/:id/candidates
@@ -291,7 +363,7 @@ export class ElectionController {
   })
   async listElectionAdmins(
     @Param() param: ElectionIdParamDto,
-  ){
+  ) {
     return await this.electionService.listAdmins(param.id);
   }
 
@@ -398,8 +470,9 @@ export class ElectionController {
   })
   async getSelfNominees(
     @Param() param: ElectionIdParamDto,
+    @Query('status') status?: SelfNominationStatus,
   ): Promise<SelfNominationResponseDto[]> {
-    const selfNominations = await this.electionService.getSelfNominations(param.id);
+    const selfNominations = await this.electionService.getSelfNominations(param.id, status);
     return selfNominations.map(toSelfNominationResponseDto);
   }
 
@@ -429,7 +502,7 @@ export class ElectionController {
   }
 
   //DELETE	/elections/:id/self-nominees/:candidateId/reject
-  @Delete(':id/self-nominees/:candidateId/reject')
+  @Patch(':id/self-nominees/:candidateId/reject')
   @Roles(AdminRole.SUPER_ADMIN)
   @ManagedElection()
   @ApiOperation({ summary: 'Reject a self-nominated candidate for an election' })
@@ -442,14 +515,78 @@ export class ElectionController {
   })
   async rejectSelfNominee(
     @Param() param: { id: string; candidateId: string },
+    @Body() body: RejectSelfNomineeDto,
     @Request() req: any
   ): Promise<AuditLogResponseDto> {
     const adminId = req.admin.id;
+
     const log = await this.electionService.rejectSelfNominee(
       param.id,
       param.candidateId,
-      adminId
+      adminId,
+      body.adminNotes
     );
+
     return toAuditLogResponseDto(log);
+  }
+
+  // PATCH: /elections/:id/self-nominees/:candidateId/request-info
+  @Patch(':id/self-nominees/:candidateId/request-info')
+  @Roles(AdminRole.SUPER_ADMIN)
+  @ManagedElection()
+  @ApiOperation({ summary: 'Request more information from a self-nominated candidate' })
+  @ApiParam({ name: 'id', type: String })
+  @ApiParam({ name: 'candidateId', type: String })
+  @ApiResponse({
+    status: 200,
+    description: 'Requested additional information.',
+    type: AuditLogResponseDto,
+  })
+  async requestInfoSelfNominee(
+    @Param() param: { id: string; candidateId: string },
+    @Body() body: RequestInfoSelfNomineeDto,
+    @Request() req: any
+  ): Promise<AuditLogResponseDto> {
+    const adminId = req.admin.id;
+
+    const log = await this.electionService.requestInfoSelfNominee(
+      param.id,
+      param.candidateId,
+      adminId,
+      body.adminNotes
+    );
+
+    return toAuditLogResponseDto(log);
+  }
+
+  // PATCH /elections/:id/self-nominees/resubmit
+  @Patch(':id/self-nominees/resubmit')
+  @Public()
+  @UseInterceptors(
+    FileInterceptor('avatar', {
+      storage: diskStorage({
+        destination: './uploads',
+        filename: (req, file, cb) => {
+          const uniqueName =
+            Date.now() + '-' + file.originalname.replace(/\s/g, '');
+          cb(null, uniqueName);
+        },
+      }),
+    }),
+  )
+  @ApiOperation({ summary: 'Resubmit self-nomination after request for more info' })
+  @ApiParam({ name: 'id', type: String })
+  @ApiResponse({
+    status: 200,
+    description: 'Resubmitted successfully.',
+  })
+  async resubmitSelfNomination(
+    @Param('id') electionId: string,
+    @UploadedFile() file: Express.Multer.File | undefined,
+    @Body() body: ResubmitSelfNominateDto,
+  ): Promise<SelfNominationResponseDto> {
+    console.log(file);
+    const result = await this.electionService.resubmitSelfNomination(electionId, body, file);
+    return toSelfNominationResponseDto(result);
   }
 }
