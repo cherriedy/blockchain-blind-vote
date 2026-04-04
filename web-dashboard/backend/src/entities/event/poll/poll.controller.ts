@@ -9,6 +9,7 @@ import {
   Post,
   Put,
   Query,
+  Request,
   UseGuards,
 } from '@nestjs/common';
 import {
@@ -197,11 +198,13 @@ export class PollController {
   async assignVoterToPoll(
     @Param() param: PollIdParamDto,
     @Body() body: AssignVoterBodyDto,
+    @Request() req: any,
   ) {
     const eventVoter = await this.pollService.assignVoter(
       param.id,
       body.voterIds,
       body.canVote,
+      req.admin.id
     );
     return toEventVoterResponseDto(eventVoter);
   }
@@ -221,8 +224,13 @@ export class PollController {
   async removeVoterFromPoll(
     @Param() param: PollIdParamDto,
     @Body() body: RemoveVoterBodyDto,
+    @Request() req: any,
   ) {
-    const message = await this.pollService.removeVoter(param.id, body.voterId);
+    const message = await this.pollService.removeVoter(
+      param.id,
+      body.voterId,
+      req.admin.id
+    );
     return toPollActionMessageResponseDto(message);
   }
 

@@ -256,8 +256,9 @@ export class ElectionController {
   async updateElection(
     @Param() param: ElectionIdParamDto,
     @Body() body: UpdateElectionRequestDto,
+    @Request() req: any,
   ): Promise<ElectionResponseDto> {
-    const election = await this.electionService.update(param.id, body);
+    const election = await this.electionService.update(param.id, body, req.admin.id);
     return toElectionResponseDto(election);
   }
 
@@ -316,11 +317,13 @@ export class ElectionController {
   async assignVotersToElection(
     @Param() param: ElectionIdParamDto,
     @Body() body: AssignVoterBodyDto,
+    @Request() req: any,
   ) {
     return this.electionService.assignVoters(
       param.id,
       body.voterIds,
       body.canVote,
+      req.admin.id
     );
   }
 
@@ -341,10 +344,12 @@ export class ElectionController {
   async removeVoterFromElection(
     @Param() param: ElectionIdParamDto,
     @Body() body: RemoveVoterBodyDto,
+    @Request() req: any,
   ): Promise<ActionMessageResponseDto> {
     const message = await this.electionService.removeVoter(
       param.id,
       body.voterId,
+      req.admin.id
     );
     return toActionMessageResponseDto(message);
   }

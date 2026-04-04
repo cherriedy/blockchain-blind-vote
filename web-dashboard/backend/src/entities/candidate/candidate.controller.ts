@@ -13,6 +13,7 @@ import {
   UseInterceptors,
   UploadedFile,
   BadRequestException,
+  Request,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -154,8 +155,9 @@ export class CandidateController {
   })
   async createCandidate(
     @Body() body: CreateCandidateRequestDto,
+    @Request() req: any,
   ): Promise<CandidateResponseDto> {
-    const candidate = await this.candidateService.create(body);
+    const candidate = await this.candidateService.create(body, req.admin.id);
     return toCandidateResponseDto(candidate);
   }
 
@@ -171,8 +173,9 @@ export class CandidateController {
   async updateCandidate(
     @Param() param: CandidateIdParamDto,
     @Body() body: UpdateCandidateRequestDto,
+    @Request() req: any,
   ): Promise<CandidateResponseDto> {
-    const candidate = await this.candidateService.update(param.id, body);
+    const candidate = await this.candidateService.update(param.id, body, req.admin.id);
     return toCandidateResponseDto(candidate);
   }
 
@@ -186,8 +189,9 @@ export class CandidateController {
   })
   async deleteCandidate(
     @Param() param: CandidateIdParamDto,
+    @Request() req: any,
   ): Promise<CandidateResponseDto> {
-    const candidate = await this.candidateService.delete(param.id);
+    const candidate = await this.candidateService.delete(param.id, req.admin.id);
     return toCandidateResponseDto(candidate);
   }
 }

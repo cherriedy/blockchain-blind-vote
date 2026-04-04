@@ -88,7 +88,7 @@ export class ElectionService {
     if (!candidate) {
       throw new NotFoundException('Candidate not found');
     }
-    
+
     return prisma.election.findMany({
       where: { visibility: 'public' },
       orderBy: { createdAt: 'desc' },
@@ -168,7 +168,11 @@ export class ElectionService {
    * @returns The updated election object.
    * @throws NotFoundException if the election does not exist.
    */
-  async update(id: string, data: UpdateElectionRequestDto): Promise<Election> {
+  async update(
+    id: string,
+    data: UpdateElectionRequestDto,
+    adminId: string
+  ): Promise<Election> {
     const existing = await prisma.election.findUnique({ where: { id } });
     if (!existing) throw new NotFoundException('Election not found');
 
@@ -180,21 +184,99 @@ export class ElectionService {
       throw new BadRequestException('Cannot update election after voter list has been finalized');
     }
 
-    if (data.visibility === 'public') {
-      const voters = await this.listVoters(id);
-      if (voters.length > 0) {
-        const voterIds = voters.map(v => v.voterId);
-        await prisma.eventVoter.deleteMany({
-          where: {
-            voteId: id,
-            voterId: { in: voterIds },
-            voteType: VotingEventType.ELECTION,
+    // So sánh candidateIds
+    const oldCandidates = existing.candidateIds || [];
+    const newCandidates = data.candidateIds || oldCandidates;
+
+    const addedCandidates = newCandidates.filter(id => !oldCandidates.includes(id));
+    const removedCandidates = oldCandidates.filter(id => !newCandidates.includes(id));
+
+    return prisma.$transaction(async (tx) => {
+
+      // nếu chuyển sang public, xoá voter
+      if (data.visibility === 'public') {
+        const voters = await this.listVoters(id);
+        if (voters.length > 0) {
+          const voterIds = voters.map(v => v.voterId);
+
+          await tx.eventVoter.deleteMany({
+            where: {
+              voteId: id,
+              voterId: { in: voterIds },
+              voteType: VotingEventType.ELECTION,
+            },
+          });
+
+          await tx.auditLog.create({
+            data: {
+              adminId,
+              action: 'REMOVE_ALL_VOTERS',
+              targetType: 'ELECTION',
+              targetId: id,
+              details: { voterIds },
+            },
+          });
+        }
+      }
+
+      // lấy tên candidate (chỉ query khi cần)
+      let addedCandidateInfos: any[] = [];
+      let removedCandidateInfos: any[] = [];
+
+      if (addedCandidates.length > 0) {
+        const candidates = await tx.candidate.findMany({
+          where: { id: { in: addedCandidates } },
+          select: { id: true, name: true },
+        });
+        addedCandidateInfos = candidates;
+      }
+
+      if (removedCandidates.length > 0) {
+        const candidates = await tx.candidate.findMany({
+          where: { id: { in: removedCandidates } },
+          select: { id: true, name: true },
+        });
+        removedCandidateInfos = candidates;
+      }
+
+      // update election
+      const updated = await tx.election.update({
+        where: { id },
+        data,
+      });
+
+      // log add candidate
+      if (addedCandidateInfos.length > 0) {
+        await tx.auditLog.create({
+          data: {
+            adminId,
+            action: 'ADD_CANDIDATE',
+            targetType: 'ELECTION',
+            targetId: id,
+            details: {
+              candidates: addedCandidateInfos, // [{id, name}]
+            },
           },
         });
       }
-    }
 
-    return prisma.election.update({ where: { id }, data });
+      // log remove candidate
+      if (removedCandidateInfos.length > 0) {
+        await tx.auditLog.create({
+          data: {
+            adminId,
+            action: 'REMOVE_CANDIDATE',
+            targetType: 'ELECTION',
+            targetId: id,
+            details: {
+              candidates: removedCandidateInfos, // [{id, name}]
+            },
+          },
+        });
+      }
+
+      return updated;
+    });
   }
 
   /**
@@ -259,6 +341,7 @@ export class ElectionService {
     id: string,
     voterIds: string[],
     canVote = true,
+    adminId?: string
   ): Promise<any> {
     const election = await prisma.election.findUnique({ where: { id } });
     if (!election) throw new NotFoundException('Election not found');
@@ -271,48 +354,74 @@ export class ElectionService {
 
     const existingVoters = await prisma.voter.findMany({
       where: { id: { in: voterIds } },
-      select: { id: true },
+      select: { id: true, name: true, email: true },
     });
 
-    const existingVoterIds = existingVoters.map((v) => v.id);
-    if (existingVoterIds.length === 0) {
+    if (existingVoters.length === 0) {
       throw new BadRequestException('No valid voters found in system');
     }
 
-    // Check for already assigned voters to avoid duplicates
+    const validVoterIds = existingVoters.map((v) => v.id);
+    if (validVoterIds.length === 0) {
+      throw new BadRequestException('No valid voters found in system');
+    }
+
     const alreadyAssigned = await prisma.eventVoter.findMany({
       where: {
         voteId: id,
-        voterId: { in: existingVoterIds },
+        voterId: { in: validVoterIds },
         voteType: VotingEventType.ELECTION,
       },
       select: { voterId: true },
     });
 
-    // Extract voterIds that are already assigned to this election
     const alreadyAssignedIds = alreadyAssigned.map((av) => av.voterId);
 
-    // Filter out already assigned voters
-    const newVoterIds = existingVoterIds.filter(
-      (vid) => !alreadyAssignedIds.includes(vid),
+    const newVoters = existingVoters.filter(
+      (v) => !alreadyAssignedIds.includes(v.id),
     );
 
-    if (newVoterIds.length === 0) {
+    if (newVoters.length === 0) {
       return {
         message: 'All selected voters were already assigned to this election',
         count: 0
       };
     }
 
-    const dataToInsert = newVoterIds.map((vId) => ({
+    const dataToInsert = newVoters.map((v) => ({
       voteType: VotingEventType.ELECTION,
       voteId: id,
-      voterId: vId,
-      canVote: canVote,
+      voterId: v.id,
+      canVote,
     }));
 
-    return prisma.eventVoter.createMany({
-      data: dataToInsert,
+    return prisma.$transaction(async (tx) => {
+      await tx.eventVoter.createMany({
+        data: dataToInsert,
+      });
+
+      // log
+      await tx.auditLog.create({
+        data: {
+          adminId: adminId!,
+          action: 'ADD_VOTER',
+          targetType: 'ELECTION',
+          targetId: id,
+          details: {
+            voters: newVoters.map(v => ({
+              id: v.id,
+              name: v.name,
+              email: v.email,
+            })),
+            canVote,
+          },
+        },
+      });
+
+      return {
+        message: 'Voters assigned successfully',
+        count: newVoters.length,
+      };
     });
   }
 
@@ -323,15 +432,47 @@ export class ElectionService {
    * @returns A confirmation message.
    * @throws NotFoundException if the election does not exist.
    */
-  async removeVoter(id: string, voterId: string): Promise<string> {
+  async removeVoter(
+    id: string,
+    voterId: string,
+    adminId?: string
+  ): Promise<string> {
     const existing = await prisma.election.findUnique({ where: { id } });
     if (!existing) throw new NotFoundException('Election not found');
 
-    return this.eventVoterService.deleteByVoterId(
-      voterId,
-      VotingEventType.ELECTION,
-      id,
-    );
+    // lấy info voter trước khi xoá
+    const voter = await prisma.voter.findUnique({
+      where: { id: voterId },
+      select: { id: true, name: true, email: true },
+    });
+
+    return prisma.$transaction(async (tx) => {
+      const message = await this.eventVoterService.deleteByVoterId(
+        voterId,
+        VotingEventType.ELECTION,
+        id,
+      );
+
+      await tx.auditLog.create({
+        data: {
+          adminId: adminId!,
+          action: 'REMOVE_VOTER',
+          targetType: 'ELECTION',
+          targetId: id,
+          details: {
+            voter: voter
+              ? {
+                id: voter.id,
+                name: voter.name,
+                email: voter.email,
+              }
+              : { id: voterId, name: 'Unknown' }, // fallback
+          },
+        },
+      });
+
+      return message;
+    });
   }
 
   /**

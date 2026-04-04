@@ -47,9 +47,12 @@ export class VoterService {
     name: string,
     email: string,
     isActive = true,
+    adminId?: string
   ): Promise<{ message: string; voterId: string }> {
+
     const normalizedStudentId =
       this.votingContextService.normalizeStudentId(studentId);
+
     const normalizedWallet =
       this.votingContextService.normalizeWalletAddress(walletAddress);
 
@@ -60,6 +63,7 @@ export class VoterService {
     const byStudent = await prisma.voter.findFirst({
       where: { studentId: normalizedStudentId },
     });
+
     const byWallet = await prisma.voter.findFirst({
       where: { walletAddress: normalizedWallet },
     });
@@ -68,17 +72,42 @@ export class VoterService {
       throw new ConflictException('studentId or walletAddress already exists');
     }
 
-    const voter = await prisma.voter.create({
-      data: {
-        studentId: normalizedStudentId,
-        walletAddress: normalizedWallet,
-        name,
-        email,
-        isActive,
-      },
-    });
+    return prisma.$transaction(async (tx) => {
+      const voter = await tx.voter.create({
+        data: {
+          studentId: normalizedStudentId,
+          walletAddress: normalizedWallet,
+          name,
+          email,
+          isActive,
+        },
+      });
 
-    return { message: 'Voter created', voterId: voter.id };
+      // audit log
+      await tx.auditLog.create({
+        data: {
+          adminId: adminId!,
+          action: 'CREATE_VOTER',
+          targetType: 'VOTER',
+          targetId: voter.id,
+          details: {
+            voter: {
+              id: voter.id,
+              name: voter.name,
+              email: voter.email,
+              studentId: voter.studentId,
+              walletAddress: voter.walletAddress,
+              isActive: voter.isActive,
+            },
+          },
+        },
+      });
+
+      return {
+        message: 'Voter created',
+        voterId: voter.id,
+      };
+    });
   }
 
   async setVoterStatus(
@@ -123,7 +152,12 @@ export class VoterService {
     });
   }
 
-  async setVoterStatusById(id: string, isActive: boolean, currentAdminWallet: string) {
+  async setVoterStatusById(
+    id: string,
+    isActive: boolean,
+    adminId: string,
+    currentAdminWallet: string
+  ) {
     const voter = await prisma.voter.findUnique({ where: { id } });
 
     if (!voter) throw new NotFoundException('Voter not found');
@@ -132,16 +166,40 @@ export class VoterService {
       throw new BadRequestException('You cannot update your own active status');
     }
 
-    await prisma.voter.update({
-      where: { id },
-      data: { isActive }
-    });
+    return prisma.$transaction(async (tx) => {
+      const updated = await tx.voter.update({
+        where: { id },
+        data: { isActive }
+      });
 
-    return {
-      message: 'Voter status updated',
-      voterId: id,
-      isActive
-    };
+      await tx.auditLog.create({
+        data: {
+          adminId,
+          action: 'UPDATE_VOTER_STATUS',
+          targetType: 'VOTER',
+          targetId: id,
+          details: {
+            voter: {
+              id: voter.id,
+              name: voter.name,
+              email: voter.email,
+            },
+            before: {
+              isActive: voter.isActive,
+            },
+            after: {
+              isActive: isActive,
+            },
+          },
+        },
+      });
+
+      return {
+        message: 'Voter status updated',
+        voterId: id,
+        isActive
+      };
+    });
   }
 
   async getByStudentId(id: string) {
@@ -150,21 +208,42 @@ export class VoterService {
     return voter;
   }
 
-  async delete(id: string) {
+  async delete(id: string, adminId: string) {
     const voter = await prisma.voter.findUnique({ where: { id } });
     if (!voter) throw new NotFoundException('Voter not found');
-    try {
-      await prisma.voter.delete({ where: { id } });
-      return { message: 'Voter deleted successfully', id };
-    } catch (error) {
-      if (error instanceof Prisma.PrismaClientKnownRequestError) {
-        if (error.code === 'P2014') {
-          throw new BadRequestException(
-            'This voter is currently part of an election and cannot be removed.'
-          );
+
+    return prisma.$transaction(async (tx) => {
+      try {
+        await tx.voter.delete({ where: { id } });
+
+        await tx.auditLog.create({
+          data: {
+            adminId,
+            action: 'DELETE_VOTER',
+            targetType: 'VOTER',
+            targetId: id,
+            details: {
+              voter: {
+                id: voter.id,
+                name: voter.name,
+                email: voter.email,
+                walletAddress: voter.walletAddress,
+              },
+            },
+          },
+        });
+
+        return { message: 'Voter deleted successfully', id };
+      } catch (error) {
+        if (error instanceof Prisma.PrismaClientKnownRequestError) {
+          if (error.code === 'P2014') {
+            throw new BadRequestException(
+              'This voter is currently part of an election and cannot be removed.'
+            );
+          }
         }
+        throw error;
       }
-      throw error;
-    }
+    });
   }
 }

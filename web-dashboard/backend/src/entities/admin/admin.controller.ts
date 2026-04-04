@@ -59,20 +59,6 @@ export class AdminController {
     return toAdminResponseDto(req.admin);
   }
 
-  @Get('my-elections')
-  @ApiOperation({ summary: 'Get elections managed by current admin' })
-  async getMyElections(@Request() req: any) {
-    const adminId = req.admin.id;
-    return this.adminService.getMyElections(adminId);
-  }
-
-  @Get('my-polls')
-  @ApiOperation({ summary: 'Get polls managed by current admin' })
-  async getMyPolls(@Request() req: any) {
-    const adminId = req.admin.id;
-    return this.adminService.getMyPolls(adminId);
-  }
-
   @Get(':id')
   @Roles(AdminRole.SUPER_ADMIN)
   @ApiOperation({ summary: 'Get admin by ID' })

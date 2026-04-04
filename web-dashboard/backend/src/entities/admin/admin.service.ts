@@ -41,34 +41,6 @@ export class AdminService {
     return admin;
   }
 
-  async getMyElections(adminId: string) {
-    const assignments = await prisma.eventAdmin.findMany({
-      where: {
-        adminId,
-        voteType: 'ELECTION',
-      },
-      include: {
-        election: true,
-      },
-    });
-
-    return assignments.map(a => a.election);
-  }
-
-  async getMyPolls(adminId: string) {
-    const assignments = await prisma.eventAdmin.findMany({
-      where: {
-        adminId,
-        voteType: 'POLL',
-      },
-      include: {
-        poll: true,
-      },
-    });
-
-    return assignments.map(a => a.poll);
-  }
-
   async create(data: CreateAdminRequestDto) {
     const wallet = data.walletAddress.trim().toLowerCase();
 

@@ -42,21 +42,42 @@ export class CandidateService {
     });
   }
 
-  async create(data: CreateCandidateRequestDto) {
+  async create(data: CreateCandidateRequestDto, adminId: string) {
     const normalizedWallet = this.votingContextService.normalizeWalletAddress(
       data.walletAddress,
     );
     const normalizedStudentId = this.votingContextService.normalizeStudentId(
       data.studentId,
     );
-    return prisma.candidate.create({
-      data: {
-        studentId: normalizedStudentId,
-        name: data.name,
-        bio: data.bio,
-        avatarUrl: data.avatarUrl,
-        walletAddress: normalizedWallet,
-      },
+
+    return prisma.$transaction(async (tx) => {
+      const candidate = await tx.candidate.create({
+        data: {
+          studentId: normalizedStudentId,
+          name: data.name,
+          bio: data.bio,
+          avatarUrl: data.avatarUrl,
+          walletAddress: normalizedWallet,
+        },
+      });
+
+      await tx.auditLog.create({
+        data: {
+          adminId,
+          action: 'CREATE_CANDIDATE',
+          targetType: 'CANDIDATE',
+          targetId: candidate.id,
+          details: {
+            candidate: {
+              id: candidate.id,
+              name: candidate.name,
+              studentId: candidate.studentId,
+            },
+          },
+        },
+      });
+
+      return candidate;
     });
   }
 
@@ -136,11 +157,67 @@ export class CandidateService {
     });
   }
 
-  async update(id: string, data: UpdateCandidateRequestDto) {
-    return prisma.candidate.update({ where: { id }, data });
+  async update(id: string, data: UpdateCandidateRequestDto, adminId: string) {
+    const existing = await prisma.candidate.findUnique({ where: { id } });
+    if (!existing) throw new NotFoundException('Candidate not found');
+
+    return prisma.$transaction(async (tx) => {
+      const updated = await tx.candidate.update({
+        where: { id },
+        data,
+      });
+
+      await tx.auditLog.create({
+        data: {
+          adminId,
+          action: 'UPDATE_CANDIDATE',
+          targetType: 'CANDIDATE',
+          targetId: id,
+          details: {
+            before: {
+              name: existing.name,
+              studentId: existing.studentId,
+              bio: existing.bio,
+            },
+            after: {
+              name: updated.name,
+              studentId: updated.studentId,
+              bio: updated.bio,
+            },
+          },
+        },
+      });
+
+      return updated;
+    });
   }
 
-  async delete(id: string) {
-    return prisma.candidate.delete({ where: { id } });
+  async delete(id: string, adminId: string) {
+    const existing = await prisma.candidate.findUnique({ where: { id } });
+    if (!existing) throw new NotFoundException('Candidate not found');
+
+    return prisma.$transaction(async (tx) => {
+      const deleted = await tx.candidate.delete({
+        where: { id },
+      });
+
+      await tx.auditLog.create({
+        data: {
+          adminId,
+          action: 'DELETE_CANDIDATE',
+          targetType: 'CANDIDATE',
+          targetId: id,
+          details: {
+            candidate: {
+              id: existing.id,
+              name: existing.name,
+              studentId: existing.studentId,
+            },
+          },
+        },
+      });
+
+      return deleted;
+    });
   }
 }

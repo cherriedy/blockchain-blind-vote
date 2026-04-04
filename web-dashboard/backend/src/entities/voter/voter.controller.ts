@@ -44,13 +44,17 @@ export class VoterController {
   })
   @ApiResponse({ status: 201, description: 'Voter created successfully.' })
   @ApiResponse({ status: 400, description: 'Invalid input data.' })
-  async createVoter(@Body() dto: CreateVoterRequestDto) {
+  async createVoter(
+    @Body() dto: CreateVoterRequestDto,
+    @Request() req: any
+  ) {
     return this.voterService.create(
       dto.studentId,
       dto.walletAddress,
       dto.name,
       dto.email,
-      dto.isActive
+      dto.isActive,
+      req.admin.id
     );
   }
 
@@ -110,8 +114,12 @@ export class VoterController {
     @Body('isActive') isActive: boolean,
     @Request() req: any
   ) {
-    const currentAdminWallet = req.admin.walletAddress;
-    return this.voterService.setVoterStatusById(id, isActive, currentAdminWallet);
+    return this.voterService.setVoterStatusById(
+      id,
+      isActive,
+      req.admin.id,
+      req.admin.walletAddress
+    );
   }
 
   @Delete(':id')
@@ -126,7 +134,10 @@ export class VoterController {
   })
   @ApiResponse({ status: 200, description: 'Voter deleted successfully.' })
   @ApiResponse({ status: 404, description: 'Voter not found.' })
-  async deleteVoter(@Param() params: VoterIdParamDto) {
-    return this.voterService.delete(params.id);
+  async deleteVoter(
+    @Param() params: VoterIdParamDto,
+    @Request() req: any
+  ) {
+    return this.voterService.delete(params.id, req.admin.id,);
   }
 }

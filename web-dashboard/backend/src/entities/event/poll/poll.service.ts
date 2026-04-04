@@ -216,34 +216,34 @@ export class PollService {
    * @throws NotFoundException if the poll does not exist.
    */
   async delete(id: string): Promise<Poll> {
-      const poll = await prisma.poll.findUnique({
-        where: { id }
-      });
-  
-      if (!poll) {
-        throw new NotFoundException("Poll not found");
-      }
-  
-      if (poll.status !== "pending") {
-        throw new BadRequestException(
-          "Cannot delete poll that is ongoing or ended"
-        );
-      }
-  
-      if (poll.votes && Object.keys(poll.votes).length > 0) {
-        throw new BadRequestException(
-          "Cannot delete poll with votes"
-        );
-      }
-  
-      await prisma.eventAdmin.deleteMany({
-        where: { voteId: id, voteType: 'POLL'}
-      });
-  
-      return prisma.poll.delete({
-        where: { id }
-      });
+    const poll = await prisma.poll.findUnique({
+      where: { id }
+    });
+
+    if (!poll) {
+      throw new NotFoundException("Poll not found");
     }
+
+    if (poll.status !== "pending") {
+      throw new BadRequestException(
+        "Cannot delete poll that is ongoing or ended"
+      );
+    }
+
+    if (poll.votes && Object.keys(poll.votes).length > 0) {
+      throw new BadRequestException(
+        "Cannot delete poll with votes"
+      );
+    }
+
+    await prisma.eventAdmin.deleteMany({
+      where: { voteId: id, voteType: 'POLL' }
+    });
+
+    return prisma.poll.delete({
+      where: { id }
+    });
+  }
 
   /**
    * List all voters assigned to a poll.
@@ -270,6 +270,7 @@ export class PollService {
     id: string,
     voterIds: string[],
     canVote = true,
+    adminId?: string
   ): Promise<any> {
     const existing = await prisma.poll.findUnique({ where: { id } });
     if (!existing) throw new NotFoundException('Poll not found');
@@ -282,7 +283,7 @@ export class PollService {
 
     const existingVoters = await prisma.voter.findMany({
       where: { id: { in: voterIds } },
-      select: { id: true },
+      select: { id: true, name: true, email: true },
     });
 
     const validVoterIds = existingVoters.map((v) => v.id);
@@ -290,39 +291,62 @@ export class PollService {
       throw new BadRequestException('No valid voters found in system');
     }
 
-    // SỬA LỖI TẠI ĐÂY: voteType phải là POLL
     const alreadyAssigned = await prisma.eventVoter.findMany({
       where: {
         voteId: id,
         voterId: { in: validVoterIds },
-        voteType: VotingEventType.POLL, // Đổi từ ELECTION thành POLL
+        voteType: VotingEventType.POLL,
       },
       select: { voterId: true },
     });
 
     const alreadyAssignedIds = alreadyAssigned.map((av) => av.voterId);
 
-    const newVoterIds = validVoterIds.filter(
-      (vid) => !alreadyAssignedIds.includes(vid),
+    const newVoters = existingVoters.filter(
+      (v) => !alreadyAssignedIds.includes(v.id),
     );
 
-    // Trả về thông báo thành công thay vì throw lỗi nếu tất cả đã được gán
-    if (newVoterIds.length === 0) {
+    if (newVoters.length === 0) {
       return {
         message: 'All selected voters are already assigned to this poll',
         count: 0
       };
     }
 
-    const dataToInsert = newVoterIds.map((vId) => ({
+    const dataToInsert = newVoters.map((v) => ({
       voteType: VotingEventType.POLL,
       voteId: id,
-      voterId: vId,
-      canVote: canVote,
+      voterId: v.id,
+      canVote,
     }));
 
-    return prisma.eventVoter.createMany({
-      data: dataToInsert,
+    // transaction + audit log
+    return prisma.$transaction(async (tx) => {
+      await tx.eventVoter.createMany({
+        data: dataToInsert,
+      });
+
+      await tx.auditLog.create({
+        data: {
+          adminId: adminId!,
+          action: 'ADD_VOTER',
+          targetType: 'POLL',
+          targetId: id,
+          details: {
+            voters: newVoters.map(v => ({
+              id: v.id,
+              name: v.name,
+              email: v.email,
+            })),
+            canVote,
+          },
+        },
+      });
+
+      return {
+        message: 'Voters assigned successfully',
+        count: newVoters.length,
+      };
     });
   }
 
@@ -333,15 +357,47 @@ export class PollService {
    * @returns A confirmation message.
    * @throws NotFoundException if the poll does not exist.
    */
-  async removeVoter(id: string, voterId: string): Promise<string> {
+  async removeVoter(
+    id: string,
+    voterId: string,
+    adminId?: string
+  ): Promise<string> {
     const existing = await prisma.poll.findUnique({ where: { id } });
     if (!existing) throw new NotFoundException('Poll not found');
 
-    return this.eventVoterService.deleteByVoterId(
-      voterId,
-      VotingEventType.POLL,
-      id,
-    );
+    // lấy info voter trước khi xoá
+    const voter = await prisma.voter.findUnique({
+      where: { id: voterId },
+      select: { id: true, name: true, email: true },
+    });
+
+    return prisma.$transaction(async (tx) => {
+      const message = await this.eventVoterService.deleteByVoterId(
+        voterId,
+        VotingEventType.POLL,
+        id,
+      );
+
+      await tx.auditLog.create({
+        data: {
+          adminId: adminId!,
+          action: 'REMOVE_VOTER',
+          targetType: 'POLL',
+          targetId: id,
+          details: {
+            voter: voter
+              ? {
+                id: voter.id,
+                name: voter.name,
+                email: voter.email,
+              }
+              : { id: voterId, name: 'Unknown' }, // fallback
+          },
+        },
+      });
+
+      return message;
+    });
   }
 
   /**
