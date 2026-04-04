@@ -54,6 +54,7 @@ export interface Voter {
     studentId: string;
     walletAddress: string;
     name: string;
+    email: string;
     isActive: boolean;
     createdAt: string;
     updatedAt: string;

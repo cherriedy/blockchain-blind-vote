@@ -42,7 +42,9 @@ function CandidateRow({ candidate, voteCount, totalVotes }: CandidateRowProps) {
         {candidate.avatarUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
-            src={candidate.avatarUrl}
+            src={candidate.avatarUrl.startsWith('http')
+              ? candidate.avatarUrl
+              : `${process.env.NEXT_PUBLIC_BACKEND_URL}${candidate.avatarUrl}`}
             alt={candidate.name}
             className="w-full h-full object-cover"
           />

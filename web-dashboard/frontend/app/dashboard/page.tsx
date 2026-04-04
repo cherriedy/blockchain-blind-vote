@@ -498,7 +498,7 @@ export default function DashboardPage() {
                         </div>
 
                         <div>
-                            <p className="text-sm font-semibold mb-1">Nội dung giới thiệu bản thân</p>
+                            <p className="text-sm font-semibold mb-1">Nội dung giới thiệu</p>
                             <textarea
                                 className="w-full border rounded p-2 min-h-[120px]"
                                 value={intro}

@@ -174,6 +174,7 @@ export default function VotersManager({ role }: ManagerProps) {
                                 <tr className="text-[10px] font-black uppercase tracking-widest text-slate-400">
                                     <th className="px-6 py-4 text-left">Mã SV</th>
                                     <th className="px-6 py-4 text-left">Tên cử tri</th>
+                                    <th className="px-6 py-4 text-left">Email</th>
                                     <th className="px-6 py-4 text-left">Địa chỉ ví</th>
                                     <th className="px-6 py-4 text-left">Trạng thái</th>
                                     <th className="px-6 py-4 text-left">Hành động</th>
@@ -189,8 +190,9 @@ export default function VotersManager({ role }: ManagerProps) {
                                 ) : (
                                     voters.map((voter) => (
                                         <tr key={voter.id} className="border-b border-slate-100 hover:bg-slate-50">
-                                            <td className="px-4 py-3 font-medium text-slate-900">{voter.studentId}</td>
-                                            <td className="px-4 py-3 font-medium text-slate-900">{voter.name}</td>
+                                            <td className="px-4 py-3 text-slate-900">{voter.studentId}</td>
+                                            <td className="px-4 py-3 text-slate-900">{voter.name}</td>
+                                            <td className="px-4 py-3 text-slate-900">{voter.email}</td>
                                             <td className="px-4 py-3 text-slate-600 font-mono text-xs">{voter.walletAddress.slice(0, 10)}...{voter.walletAddress.slice(-8)}</td>
                                             <td className="px-4 py-3">
                                                 <span className={`px-2 py-1 text-xs font-bold border rounded ${voter.isActive

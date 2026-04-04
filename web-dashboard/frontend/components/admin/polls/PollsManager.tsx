@@ -145,7 +145,7 @@ export default function PollsManager({ role }: ManagerProps) {
         <div className="space-y-6">
             <div className="flex justify-between">
                 <h2 className="text-xl font-black uppercase tracking-tight">
-                    Quản lý Poll
+                    Quản lý khảo sát
                 </h2>
 
                 {role === 'SUPER_ADMIN' && (

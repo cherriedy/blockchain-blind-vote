@@ -244,7 +244,7 @@ export default function ElectionFormModal({
 
                     <Button
                         onClick={handleLocalSubmit}
-                        disabled={!form.name || form.candidateIds.length === 0}
+                        // disabled={!form.name || form.candidateIds.length === 0}
                         className="bg-blue-600 hover:bg-blue-700 text-white"
                     >
                         {mode === 'create' ? 'Tạo' : 'Cập nhật'}
