@@ -11,7 +11,12 @@ import { MailService } from 'src/mail/mail.service';
 @Module({
   imports: [VoterModule, EventVoterModule, CandidateModule],
   controllers: [ElectionController],
-  providers: [ElectionService, ElectionPermissionGuard, ElectionScheduler, MailService],
+  providers: [
+    ElectionService,
+    ElectionPermissionGuard,
+    ElectionScheduler,
+    MailService,
+  ],
   exports: [ElectionService],
 })
 export class ElectionModule {}

@@ -17,48 +17,15 @@ import {
   toBlindRsaPublicKeyResponseDto,
   toBlindSignatureResponseDto,
 } from './blind-signature';
-import {
-  EligibilityChallengeRequestDto,
-  EligibilityService,
-  EligibilityVerifyRequestDto,
-} from './eligibility';
 import { BlindRsaService } from './blind-signature';
 
 @ApiTags('Voting')
 @Controller('voting')
 export class VotingController {
   constructor(
-    private readonly eligibilityService: EligibilityService,
     private readonly blindRsaService: BlindRsaService,
     private readonly blockchainService: BlockchainService,
   ) {}
-
-  @Post('challenge')
-  @ApiOperation({ summary: 'Create eligibility challenge' })
-  @ApiBody({ type: EligibilityChallengeRequestDto })
-  @ApiResponse({ status: 201, description: 'Eligibility challenge created.' })
-  createEligibilityChallenge(@Body() body: EligibilityChallengeRequestDto) {
-    return this.eligibilityService.createEligibilityChallenge(
-      body.studentId,
-      body.walletAddress,
-      body.voteType,
-      body.voteId,
-    );
-  }
-
-  @Post('verify-challenge')
-  @ApiOperation({ summary: 'Verify eligibility signature' })
-  @ApiBody({ type: EligibilityVerifyRequestDto })
-  @ApiResponse({ status: 200, description: 'Eligibility verified.' })
-  verifyEligibilitySignature(@Body() body: EligibilityVerifyRequestDto) {
-    return this.eligibilityService.verifyEligibilitySignature(
-      body.studentId,
-      body.walletAddress,
-      body.signature,
-      body.voteType,
-      body.voteId,
-    );
-  }
 
   @Get('public-key')
   @ApiOperation({ summary: 'Get RSA public key for a voting event' })

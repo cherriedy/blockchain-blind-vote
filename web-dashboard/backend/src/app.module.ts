@@ -5,6 +5,7 @@ import { AdminModule, EntitiesModule } from './entities';
 import { APP_GUARD } from '@nestjs/core';
 import { AdminAuthGuard, RolesGuard } from './shared/guards';
 import { ScheduleModule } from '@nestjs/schedule';
+import { AuthenticationModule } from './authentication/authentication.module';
 
 @Module({
   imports: [
@@ -12,11 +13,12 @@ import { ScheduleModule } from '@nestjs/schedule';
     EntitiesModule,
     VotingModule,
     AdminModule,
-    ScheduleModule.forRoot()
+    ScheduleModule.forRoot(),
+    AuthenticationModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: AdminAuthGuard },
     { provide: APP_GUARD, useClass: RolesGuard },
   ],
 })
-export class AppModule { }
+export class AppModule {}

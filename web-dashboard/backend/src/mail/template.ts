@@ -1,7 +1,7 @@
 export function buildEmailTemplate(
   title: string,
   content: string,
-  color: string = '#4CAF50' // default green
+  color: string = '#4CAF50', // default green
 ) {
   return `
   <div style="font-family: Arial, sans-serif; background-color: #f4f6f8; padding: 20px;">

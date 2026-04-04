@@ -2,11 +2,7 @@ import { IsEnum, IsNotEmpty, IsString } from 'class-validator';
 import { VotingEventType } from '../../enums';
 import { IsValidWalletAddress } from '../index';
 
-export class StudentScopedRequestDto {
-  @IsString()
-  @IsNotEmpty()
-  studentId: string;
-
+export class VoteScopedRequestDto {
   @IsEnum(VotingEventType)
   @IsNotEmpty()
   voteType: VotingEventType;
@@ -16,7 +12,13 @@ export class StudentScopedRequestDto {
   voteId: string;
 }
 
-export class WalletScopedRequestDto extends StudentScopedRequestDto {
+export class StudentScopedRequestDto {
+  @IsString()
+  @IsNotEmpty()
+  studentId: string;
+}
+
+export class WalletScopedRequestDto {
   @IsString()
   @IsNotEmpty()
   @IsValidWalletAddress({ variant: 'ethereum' })

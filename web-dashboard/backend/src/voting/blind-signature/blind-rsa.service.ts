@@ -27,9 +27,7 @@ export class BlindRsaService {
   /** Number of bits in the modulus n (e.g. 2048) */
   private readonly modulusSize: number;
 
-  constructor(
-    private readonly votingContextService: VotingContextService,
-  ) {
+  constructor(private readonly votingContextService: VotingContextService) {
     const { n, e, d, size } = this.loadOrGenerateKeyPair();
     this.n = n;
     this.e = e;

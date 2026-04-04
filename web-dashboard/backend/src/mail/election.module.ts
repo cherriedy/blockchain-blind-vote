@@ -1,12 +1,9 @@
-import { Module } from "@nestjs/common";
-import { ElectionService } from "src/entities";
-import { MailService } from "./mail.service";
+import { Module } from '@nestjs/common';
+import { ElectionService } from 'src/entities';
+import { MailService } from './mail.service';
 
 @Module({
-  providers: [
-    ElectionService,
-    MailService,
-  ],
+  providers: [ElectionService, MailService],
   exports: [MailService],
 })
 export class ElectionModule {}

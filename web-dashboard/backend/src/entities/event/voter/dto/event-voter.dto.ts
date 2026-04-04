@@ -80,7 +80,8 @@ export class AssignVoterBodyDto {
   voterIds: string[];
 
   @ApiPropertyOptional({
-    description: 'Whether the assigned voters are allowed to vote in this event.',
+    description:
+      'Whether the assigned voters are allowed to vote in this event.',
     example: true,
   })
   @IsOptional()

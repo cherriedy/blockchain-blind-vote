@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ethers } from 'ethers';
 import { adminService } from '@/services/admin.service';
+import { authService } from '@/services/auth.service';
 
 export default function LoginPage() {
     const [studentId, setStudentId] = useState<string>('');
@@ -54,10 +55,11 @@ export default function LoginPage() {
 
         try {
             setConnecting(true);
-            const res = await adminService.getVoterById(trimmedStudentId);
 
+            // 1) Fetch voter and basic checks
+            const res = await adminService.getVoterById(trimmedStudentId);
             const voter = res.data;
-        
+
             if (!voter) {
                 setMsg({ type: 'error', text: 'Không tìm thấy cử tri.' });
                 return;
@@ -73,14 +75,61 @@ export default function LoginPage() {
                 return;
             }
 
-            localStorage.setItem('studentId', trimmedStudentId);
-            localStorage.setItem('walletAddress', trimmedWallet);
+            // 2) Request eligibility challenge (nonce + message)
+            setMsg({ type: '', text: 'Yêu cầu xác thực, vui lòng ký tin nhắn trên ví.' });
+            const challengeRes = await authService.createEligibilityChallenge(trimmedStudentId, trimmedWallet);
+            const challengeData = challengeRes.data;
 
-            router.push('/dashboard');
+            // If backend reports already verified, skip signing
+            if ((challengeData as any).verified) {
+                localStorage.setItem('studentId', trimmedStudentId);
+                localStorage.setItem('walletAddress', trimmedWallet);
+                setMsg({ type: 'success', text: 'Đã xác thực trước đó. Chuyển hướng...' });
+                router.push('/dashboard');
+                return;
+            }
 
+            const message = (challengeData as any).message;
+            if (!message) {
+                setMsg({ type: 'error', text: 'Không nhận được thông tin xác thực từ máy chủ.' });
+                return;
+            }
+
+            // 3) Ask user to sign the challenge message with their wallet
+            const provider = new ethers.BrowserProvider((window as any).ethereum);
+            const signer = await provider.getSigner();
+
+            let signature: string;
+            try {
+                signature = await signer.signMessage(message);
+            } catch (err: any) {
+                // user rejected signature or other wallet error
+                if (err?.code === 4001) {
+                    setMsg({ type: 'error', text: 'Bạn đã từ chối ký. Vui lòng ký để tiếp tục.' });
+                } else {
+                    setMsg({ type: 'error', text: 'Lỗi khi yêu cầu ký từ ví.' });
+                }
+                return;
+            }
+
+            // 4) Verify signature with backend
+            setMsg({ type: '', text: 'Xác thực chữ ký...' });
+            const verifyRes = await authService.verifyEligibilitySignature(trimmedStudentId, trimmedWallet, signature);
+            const verifyData = verifyRes.data;
+
+            if (verifyData && (verifyData as any).valid) {
+                localStorage.setItem('studentId', trimmedStudentId);
+                localStorage.setItem('walletAddress', trimmedWallet);
+                setMsg({ type: 'success', text: 'Xác thực thành công, chuyển hướng...' });
+                router.push('/dashboard');
+            } else {
+                setMsg({ type: 'error', text: 'Xác thực thất bại. Vui lòng thử lại.' });
+            }
         } catch (err: any) {
             if (err.response?.status === 404) {
                 setMsg({ type: 'error', text: 'Cử tri không tồn tại.' });
+            } else if (err.response?.data?.message) {
+                setMsg({ type: 'error', text: err.response.data.message });
             } else {
                 setMsg({ type: 'error', text: 'Lỗi kết nối máy chủ.' });
             }

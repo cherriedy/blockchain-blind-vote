@@ -1,9 +1,13 @@
-import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { randomBytes } from 'crypto';
 import { ethers } from 'ethers';
-import { VotingContextService } from '../context';
-import { VotingEventType, VotingEventVisibility } from '../../enums';
-import { BallotRequestService } from '../ballot-request/ballot-request.service';
+import { VotingContextService } from '../voting/context';
+import { VotingEventType, VotingEventVisibility } from '../enums';
+import { BallotRequestService } from '../voting/ballot-request/ballot-request.service';
 import {
   toEligibilityChallengeResponseDto,
   toEligibilityAlreadyVerifiedResponseDto,
@@ -16,7 +20,7 @@ export class EligibilityService {
   constructor(
     private readonly ballotRequestService: BallotRequestService,
     private readonly votingContextService: VotingContextService,
-  ) { }
+  ) {}
 
   /**
    *
@@ -31,11 +35,9 @@ export class EligibilityService {
   async createEligibilityChallenge(
     studentId: string,
     walletAddress: string,
-    voteType: string,
-    voteId: string,
+    voteType?: string,
+    voteId?: string,
   ): Promise<CreateEligibilityChallengeResponseDto> {
-    this.votingContextService.assertVoteScope(voteType, voteId);
-
     const normalizedStudentId =
       this.votingContextService.normalizeStudentId(studentId);
     const normalizedWallet =
@@ -53,18 +55,26 @@ export class EligibilityService {
       throw new BadRequestException('Voter not found or inactive');
     }
 
-    await this.assertVoterAssignedToPrivateEvent(
-      normalizedStudentId,
-      normalizedWallet,
-      voteType as VotingEventType,
-      voteId,
-    );
+    // If a vote scope is provided, ensure the voter is assigned for private events.
+    // When called from the web login flow, voteType and voteId will be undefined,
+    // and we skip the per-vote assignment check.
+    const scopeVoteType = voteType ?? 'LOGIN';
+    const scopeVoteId = voteId ?? 'LOGIN';
+
+    if (voteType && voteId) {
+      await this.assertVoterAssignedToPrivateEvent(
+        normalizedStudentId,
+        normalizedWallet,
+        voteType as VotingEventType,
+        voteId,
+      );
+    }
 
     const existingRequest = await this.ballotRequestService.findOne(
       normalizedStudentId,
       normalizedWallet,
-      voteType,
-      voteId,
+      scopeVoteType,
+      scopeVoteId,
     );
     if (existingRequest && existingRequest.isChallenged) {
       return toEligibilityAlreadyVerifiedResponseDto(
@@ -76,16 +86,23 @@ export class EligibilityService {
     const ballotRequest = await this.ballotRequestService.upsert({
       studentId: normalizedStudentId,
       walletAddress: normalizedWallet,
-      voteType,
-      voteId,
+      voteType: scopeVoteType,
+      voteId: scopeVoteId,
       walletChallengeNonce: randomBytes(16).toString('hex'),
       walletChallengeExpiresAt: new Date(Date.now() + 5 * 60 * 1000),
     });
 
+    // Build a human-friendly message. For login-scoped challenges we use a
+    // different message format to avoid coupling to a specific vote.
+    const message =
+      voteType && voteId
+        ? `Voting eligibility challenge:${voteType}:${voteId}:${ballotRequest.walletChallengeNonce}`
+        : `Login wallet challenge:${ballotRequest.walletChallengeNonce}`;
+
     return toEligibilityChallengeResponseDto(
       ballotRequest.walletChallengeNonce!,
       ballotRequest.walletChallengeExpiresAt!,
-      `Voting eligibility challenge:${voteType}:${voteId}:${ballotRequest.walletChallengeNonce}`,
+      message,
     );
   }
 
@@ -101,29 +118,38 @@ export class EligibilityService {
     studentId: string,
     walletAddress: string,
     signature: string,
-    voteType: string,
-    voteId: string,
+    voteType?: string,
+    voteId?: string,
   ) {
-    this.votingContextService.assertVoteScope(voteType, voteId);
+    // If voteType/voteId provided, validate scope; otherwise this is a login-scoped verification.
+    if (voteType && voteId) {
+      this.votingContextService.assertVoteScope(voteType, voteId);
+    }
 
     const normalizedStudentId =
       this.votingContextService.normalizeStudentId(studentId);
     const normalizedWallet =
       this.votingContextService.normalizeWalletAddress(walletAddress);
 
-    await this.assertVoterAssignedToPrivateEvent(
-      normalizedStudentId,
-      normalizedWallet,
-      voteType as VotingEventType,
-      voteId,
-    );
+    // Only assert assignment for vote-scoped verifications. Login flow should not require assignment.
+    if (voteType && voteId) {
+      await this.assertVoterAssignedToPrivateEvent(
+        normalizedStudentId,
+        normalizedWallet,
+        voteType as VotingEventType,
+        voteId,
+      );
+    }
 
     // Replace findFirst with upsert to get or create the ballot request
+    const scopeVoteType = voteType ?? 'LOGIN';
+    const scopeVoteId = voteId ?? 'LOGIN';
+
     const ballotRequest = await this.ballotRequestService.findOne(
       normalizedStudentId,
       normalizedWallet,
-      voteType,
-      voteId,
+      scopeVoteType,
+      scopeVoteId,
     );
 
     if (
@@ -137,7 +163,10 @@ export class EligibilityService {
       throw new UnauthorizedException('Challenge expired');
     }
 
-    const challengeMessage = `Voting eligibility challenge:${voteType}:${voteId}:${ballotRequest.walletChallengeNonce}`;
+    const challengeMessage =
+      voteType && voteId
+        ? `Voting eligibility challenge:${voteType}:${voteId}:${ballotRequest.walletChallengeNonce}`
+        : `Login wallet challenge:${ballotRequest.walletChallengeNonce}`;
     const recovered = ethers
       .verifyMessage(challengeMessage, signature)
       .toLowerCase();

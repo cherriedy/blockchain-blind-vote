@@ -1,4 +1,11 @@
-import { IsMongoId, IsString, IsOptional, MinLength, IsEnum, IsNotEmpty } from 'class-validator';
+import {
+  IsMongoId,
+  IsString,
+  IsOptional,
+  MinLength,
+  IsEnum,
+  IsNotEmpty,
+} from 'class-validator';
 import { PartialType } from '@nestjs/mapped-types';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { AdminRole } from '@prisma/client';
@@ -6,8 +13,7 @@ import { IsValidWalletAddress } from 'src/shared';
 
 export class AdminIdParamDto {
   @ApiProperty({
-    description:
-      'Unique identifier for the admin (MongoDB ObjectId format).',
+    description: 'Unique identifier for the admin (MongoDB ObjectId format).',
     example: '605c5f2e8e3b3a2f88d8b456',
   })
   @IsMongoId()
@@ -31,16 +37,15 @@ export class CreateAdminRequestDto {
   role: AdminRole;
 
   @ApiPropertyOptional({
-    description: 'Indicates whether the admin account is active. Defaults to true.',
+    description:
+      'Indicates whether the admin account is active. Defaults to true.',
     example: true,
   })
   @IsOptional()
   isActive?: boolean;
 }
 
-export class UpdateAdminRequestDto extends PartialType(
-  CreateAdminRequestDto,
-) { }
+export class UpdateAdminRequestDto extends PartialType(CreateAdminRequestDto) {}
 
 export class AdminResponseDto {
   @ApiProperty({ example: '605c5f2e8e3b3a2f88d8b456' })
@@ -48,7 +53,7 @@ export class AdminResponseDto {
 
   @ApiProperty({
     enum: AdminRole,
-    example: AdminRole.SUPER_ADMIN
+    example: AdminRole.SUPER_ADMIN,
   })
   role: AdminRole;
 

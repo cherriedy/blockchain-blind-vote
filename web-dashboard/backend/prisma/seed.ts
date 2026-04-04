@@ -117,7 +117,6 @@ async function main() {
       isAutomatic: faker.datatype.boolean(),
       candidateIds: pickedIds,
       allowSelfNomination: faker.datatype.boolean(),
-      selfNominatedCandidates: [],
       votes: {},
     };
   });
@@ -217,7 +216,12 @@ async function main() {
     });
     if (!eventVoter) {
       eventVoter = await prisma.eventVoter.create({
-        data: { voterId: voter.id, voteType: 'election', voteId: election.id, canVote: true },
+        data: {
+          voterId: voter.id,
+          voteType: 'election',
+          voteId: election.id,
+          canVote: true,
+        },
       });
     }
   }
@@ -228,7 +232,12 @@ async function main() {
     });
     if (!pollEventVoter) {
       pollEventVoter = await prisma.eventVoter.create({
-        data: { voterId: voter.id, voteType: 'poll', voteId: poll.id, canVote: true },
+        data: {
+          voterId: voter.id,
+          voteType: 'poll',
+          voteId: poll.id,
+          canVote: true,
+        },
       });
     }
   }

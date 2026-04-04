@@ -7,4 +7,4 @@ export const MANAGED_ELECTION_KEY = 'managedElection';
  * @param param 'id' ở URL param để lấy electionId (mặc định 'id')
  */
 export const ManagedElection = (param: string = 'id') =>
-    SetMetadata(MANAGED_ELECTION_KEY, param);
+  SetMetadata(MANAGED_ELECTION_KEY, param);

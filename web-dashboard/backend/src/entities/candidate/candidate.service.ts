@@ -11,19 +11,17 @@ import { prisma } from 'prisma/prisma.service';
 
 @Injectable()
 export class CandidateService {
-  constructor(
-    private readonly votingContextService: VotingContextService,
-  ) { }
+  constructor(private readonly votingContextService: VotingContextService) {}
 
   async getAll(search?: string) {
     return prisma.candidate.findMany({
       where: search
         ? {
-          OR: [
-            { name: { contains: search, mode: 'insensitive' } },
-            { studentId: { contains: search, mode: 'insensitive' } },
-          ],
-        }
+            OR: [
+              { name: { contains: search, mode: 'insensitive' } },
+              { studentId: { contains: search, mode: 'insensitive' } },
+            ],
+          }
         : {},
     });
   }

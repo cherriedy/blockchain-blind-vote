@@ -31,7 +31,11 @@ import {
   PollActionMessageResponseDto,
   GetPollsQueryDto,
 } from './dto';
-import { AdminAuthGuard, PollPermissionGuard, RolesGuard } from '../../../shared/guards';
+import {
+  AdminAuthGuard,
+  PollPermissionGuard,
+  RolesGuard,
+} from '../../../shared/guards';
 import { AssignAdminBodyDto, EventVoterResponseDto } from '../election';
 import {
   AssignVoterBodyDto,
@@ -46,7 +50,7 @@ import { AdminRole } from '@prisma/client';
 @Controller('polls')
 @UseGuards(PollPermissionGuard)
 export class PollController {
-  constructor(private readonly pollService: PollService) { }
+  constructor(private readonly pollService: PollService) {}
 
   // ────────────────────────────────
   // Public Voter Endpoints
@@ -246,21 +250,15 @@ export class PollController {
   @Post(':id/admins')
   @Roles(AdminRole.SUPER_ADMIN)
   @ManagedPoll()
-  async assignAdmin(
-    @Param('id') id: string,
-    @Body() body: AssignAdminBodyDto,
-  ) {
-    return this.pollService.assignAdmins(id, body.adminIds,);
+  async assignAdmin(@Param('id') id: string, @Body() body: AssignAdminBodyDto) {
+    return this.pollService.assignAdmins(id, body.adminIds);
   }
 
   // DELETE /polls/:id/admins
   @Delete(':id/admins')
   @Roles(AdminRole.SUPER_ADMIN)
   @ManagedPoll()
-  async removeAdmin(
-    @Param('id') id: string,
-    @Body('adminId') adminId: string,
-  ) {
+  async removeAdmin(@Param('id') id: string, @Body('adminId') adminId: string) {
     return this.pollService.removeAdmin(id, adminId);
   }
 }
