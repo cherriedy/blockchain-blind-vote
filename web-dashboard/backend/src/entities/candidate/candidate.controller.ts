@@ -148,6 +148,18 @@ export class CandidateController {
   }
 
   @Post()
+  @UseInterceptors(
+    FileInterceptor('avatar', {
+      storage: diskStorage({
+        destination: './uploads',
+        filename: (req, file, cb) => {
+          const uniqueName =
+            Date.now() + '-' + file.originalname.replace(/\s/g, '');
+          cb(null, uniqueName);
+        },
+      }),
+    }),
+  )
   @ApiOperation({ summary: 'Create a new candidate (admin)' })
   @ApiBody({ type: CreateCandidateRequestDto })
   @ApiResponse({
@@ -156,14 +168,32 @@ export class CandidateController {
     type: CandidateResponseDto,
   })
   async createCandidate(
+    @UploadedFile() file: Express.Multer.File,
     @Body() body: CreateCandidateRequestDto,
     @Request() req: any,
   ): Promise<CandidateResponseDto> {
-    const candidate = await this.candidateService.create(body, req.admin.id);
+    const avatarUrl = file ? `/uploads/${file.filename}` : undefined;
+    const candidate = await this.candidateService.create(
+      body,
+      req.admin.id,
+      avatarUrl,
+    );
     return toCandidateResponseDto(candidate);
   }
 
   @Put(':id')
+  @UseInterceptors(
+    FileInterceptor('avatar', {
+      storage: diskStorage({
+        destination: './uploads',
+        filename: (req, file, cb) => {
+          const uniqueName =
+            Date.now() + '-' + file.originalname.replace(/\s/g, '');
+          cb(null, uniqueName);
+        },
+      }),
+    }),
+  )
   @ApiOperation({ summary: 'Update a candidate' })
   @ApiParam({ name: 'id', type: String })
   @ApiBody({ type: UpdateCandidateRequestDto })
@@ -174,13 +204,17 @@ export class CandidateController {
   })
   async updateCandidate(
     @Param() param: CandidateIdParamDto,
+    @UploadedFile() file: Express.Multer.File,
     @Body() body: UpdateCandidateRequestDto,
     @Request() req: any,
   ): Promise<CandidateResponseDto> {
+    const avatarUrl = file ? `/uploads/${file.filename}` : undefined;
+
     const candidate = await this.candidateService.update(
       param.id,
       body,
       req.admin.id,
+      avatarUrl,
     );
     return toCandidateResponseDto(candidate);
   }

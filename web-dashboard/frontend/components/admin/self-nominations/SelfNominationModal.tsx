@@ -51,6 +51,7 @@ export default function SelfNominationModal({ electionId }: { electionId: string
     // ================= ACTION =================
     const approve = async (candidateId: string) => {
         await adminService.approveSelfNominee(electionId, candidateId);
+        showMessage("Cập nhật thành công.", 'success');
         fetchData();
     };
 
@@ -76,7 +77,7 @@ export default function SelfNominationModal({ electionId }: { electionId: string
                     note
                 );
             }
-
+            showMessage("Cập nhật thành công.", 'success');
             setOpenDialog(false);
             setNote('');
             setSelectedCandidateId(null);

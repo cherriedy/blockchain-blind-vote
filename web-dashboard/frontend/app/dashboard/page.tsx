@@ -124,11 +124,6 @@ export default function DashboardPage() {
     const submitResubmit = async () => {
         if (!selectedNominationItem) return;
 
-        if (!intro.trim()) {
-            alert('Vui lòng nhập nội dung');
-            return;
-        }
-
         try {
             const formData = new FormData();
 
@@ -480,7 +475,7 @@ export default function DashboardPage() {
                         {/* Name */}
                         <div>
                             <p className="text-sm font-semibold mb-1">Tên</p>
-                            <input
+                            <input required
                                 className="w-full border rounded p-2"
                                 value={name}
                                 onChange={(e) => setName(e.target.value)}
@@ -490,7 +485,7 @@ export default function DashboardPage() {
                         {/* Bio */}
                         <div>
                             <p className="text-sm font-semibold mb-1">Tiểu sử</p>
-                            <textarea
+                            <textarea required
                                 className="w-full border rounded p-2"
                                 value={bio}
                                 onChange={(e) => setBio(e.target.value)}
@@ -499,7 +494,7 @@ export default function DashboardPage() {
 
                         <div>
                             <p className="text-sm font-semibold mb-1">Nội dung giới thiệu</p>
-                            <textarea
+                            <textarea required
                                 className="w-full border rounded p-2 min-h-[120px]"
                                 value={intro}
                                 onChange={(e) => setIntro(e.target.value)}

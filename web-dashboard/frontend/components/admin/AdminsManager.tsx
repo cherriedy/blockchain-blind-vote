@@ -9,6 +9,7 @@ export default function AdminsManager() {
   const [loading, setLoading] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
   const [editingAdmin, setEditingAdmin] = useState<Admin | null>(null);
+  const [search, setSearch] = useState('');
 
   const [form, setForm] = useState({
     name: '',
@@ -17,10 +18,10 @@ export default function AdminsManager() {
     isActive: true,
   });
 
-  const fetchAdmins = async () => {
+  const fetchAdmins = async (q?: string) => {
     setLoading(true);
     try {
-      const res = await adminService.getAdmins();
+      const res = await adminService.getAdmins(q);
       setAdmins(res.data);
     } catch (err: any) {
       console.error(err);
@@ -42,6 +43,8 @@ export default function AdminsManager() {
   const handleCreate = async () => {
     try {
       await adminService.createAdmin(form);
+      showMessage("Tạo thành công.", 'success');
+
       setForm({ name: '', walletAddress: '', role: 'ELECTION_ADMIN', isActive: true, });
       setShowCreate(false);
       fetchAdmins();
@@ -62,6 +65,8 @@ export default function AdminsManager() {
 
     try {
       await adminService.updateAdmin(editingAdmin.id, form);
+      showMessage("Cập nhật thành công.", 'success');
+
       setEditingAdmin(null);
       setForm({ name: '', walletAddress: '', role: 'ELECTION_ADMIN', isActive: true, });
       fetchAdmins();
@@ -82,6 +87,8 @@ export default function AdminsManager() {
 
     try {
       await adminService.deleteAdmin(id);
+      showMessage("Xóa thành công.", 'success');
+
       fetchAdmins();
     } catch (err: any) {
       console.error(err);
@@ -94,10 +101,55 @@ export default function AdminsManager() {
     }
   };
 
+  const handleSearch = (e: React.SyntheticEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    fetchAdmins(search);
+  };
+
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h2 className="text-xl font-black uppercase">Quản lý Admin hệ thống</h2>
+      <h2 className="text-xl font-black uppercase mb-4">Quản lý Admin hệ thống</h2>
+      {/* Search */}
+      <form
+        onSubmit={handleSearch}
+        className="mb-6 flex items-center gap-3 bg-white p-3 rounded-2xl shadow-sm border border-slate-100"
+      >
+        <div className="relative flex-1">
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search by action, target, or admin..."
+            className="w-full pl-10 pr-4 py-2.5 text-sm border border-slate-200 rounded-xl 
+                 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500
+                 transition-all duration-200"
+          />
+
+          {/* Icon */}
+          <svg
+            className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            viewBox="0 0 24 24"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.3-4.3M10 18a8 8 0 100-16 8 8 0 000 16z" />
+          </svg>
+        </div>
+
+        <button
+          type="submit"
+          className="px-5 py-2.5 text-sm font-medium text-white rounded-xl
+               bg-gradient-to-r from-blue-500 to-blue-600
+               hover:from-blue-600 hover:to-blue-700
+               shadow-sm hover:shadow-md
+               transition-all duration-200 active:scale-95"
+        >
+          Search
+        </button>
+      </form>
+
+      <div className="flex justify-end">
         <button
           onClick={() => {
             setShowCreate(true);

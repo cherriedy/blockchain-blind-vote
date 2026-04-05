@@ -11,11 +11,13 @@ export default function CandidatesManager({ role }: ManagerProps) {
     const [showCreate, setShowCreate] = useState(false);
     const [loading, setLoading] = useState(false);
     const [editingCandidate, setEditingCandidate] = useState<Candidate | null>(null);
+    const [search, setSearch] = useState('');
+    const [file, setFile] = useState<File | null>(null);
 
-    const fetchCandidates = async () => {
+    const fetchCandidates = async (q?: string) => {
         setLoading(true);
         try {
-            const res = await adminService.getCandidates();
+            const res = await adminService.getCandidates(q);
             setCandidates(res.data);
         } catch (err: any) {
             console.error(err);
@@ -47,23 +49,29 @@ export default function CandidatesManager({ role }: ManagerProps) {
         }
 
         try {
-            await adminService.createCandidate({
-                studentId: form.studentId,
-                name: form.name,
-                bio: form.bio,
-                walletAddress: form.walletAddress,
-            });
+            const formData = new FormData();
+
+            formData.append('studentId', form.studentId);
+            formData.append('name', form.name);
+            formData.append('bio', form.bio || '');
+            formData.append('walletAddress', form.walletAddress);
+
+            if (file) {
+                formData.append('avatar', file);
+            }
+
+            await adminService.createCandidate(formData);
+
+            showMessage("Tạo thành công.", 'success');
+
             setForm({ studentId: '', name: '', bio: '', walletAddress: '' });
+            setFile(null);
             setShowCreate(false);
+
             await fetchCandidates();
         } catch (err: any) {
             console.error(err);
-
-            if (err?.response?.data?.message) {
-                showMessage(err.response.data.message, 'error');
-            } else {
-                showMessage('Something went wrong', 'error');
-            }
+            showMessage(err?.response?.data?.message || 'Something went wrong', 'error');
         }
     };
 
@@ -71,23 +79,29 @@ export default function CandidatesManager({ role }: ManagerProps) {
         if (!editingCandidate) return;
 
         try {
-            await adminService.updateCandidate(editingCandidate.id, {
-                name: form.name,
-                bio: form.bio,
-            });
+            const formData = new FormData();
 
-            setEditingCandidate(null);
+            formData.append('studentId', form.studentId);
+            formData.append('name', form.name);
+            formData.append('bio', form.bio || '');
+            formData.append('walletAddress', form.walletAddress);
+
+            if (file) {
+                formData.append('avatar', file);
+            }
+
+            await adminService.updateCandidate(editingCandidate.id, formData);
+
+            showMessage("Cập nhật thành công.", 'success');
+
             setForm({ studentId: '', name: '', bio: '', walletAddress: '' });
+            setFile(null);
+            setEditingCandidate(null);
 
             await fetchCandidates();
         } catch (err: any) {
             console.error(err);
-
-            if (err?.response?.data?.message) {
-                showMessage(err.response.data.message, 'error');
-            } else {
-                showMessage('Something went wrong', 'error');
-            }
+            showMessage(err?.response?.data?.message || 'Something went wrong', 'error');
         }
     };
 
@@ -95,6 +109,8 @@ export default function CandidatesManager({ role }: ManagerProps) {
         if (!confirm('Bạn chắc chắn muốn xóa ứng viên này?')) return;
         try {
             await adminService.deleteCandidate(id);
+            showMessage("Cập nhật thành công.", 'success');
+
             await fetchCandidates();
         } catch (err: any) {
             console.error(err);
@@ -107,10 +123,56 @@ export default function CandidatesManager({ role }: ManagerProps) {
         }
     };
 
+    const handleSearch = (e: React.SyntheticEvent<HTMLFormElement>) => {
+        e.preventDefault();
+        fetchCandidates(search);
+    };
+
     return (
         <div className="space-y-6">
-            <div className="flex justify-between items-center">
-                <h2 className="text-xl font-black uppercase tracking-tight">Quản lý ứng viên</h2>
+
+            <h2 className="text-xl font-black uppercase tracking-tight">Quản lý ứng viên</h2>
+            {/* Search */}
+            <form
+                onSubmit={handleSearch}
+                className="mb-6 flex items-center gap-3 bg-white p-3 rounded-2xl shadow-sm border border-slate-100"
+            >
+                <div className="relative flex-1">
+                    <input
+                        type="text"
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                        placeholder="Search by action, target, or admin..."
+                        className="w-full pl-10 pr-4 py-2.5 text-sm border border-slate-200 rounded-xl 
+                 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500
+                 transition-all duration-200"
+                    />
+
+                    {/* Icon */}
+                    <svg
+                        className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        viewBox="0 0 24 24"
+                    >
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.3-4.3M10 18a8 8 0 100-16 8 8 0 000 16z" />
+                    </svg>
+                </div>
+
+                <button
+                    type="submit"
+                    className="px-5 py-2.5 text-sm font-medium text-white rounded-xl
+               bg-gradient-to-r from-blue-500 to-blue-600
+               hover:from-blue-600 hover:to-blue-700
+               shadow-sm hover:shadow-md
+               transition-all duration-200 active:scale-95"
+                >
+                    Search
+                </button>
+            </form>
+
+            <div className="flex justify-end">
                 <button
                     onClick={() => {
                         setShowCreate(true);
@@ -132,6 +194,38 @@ export default function CandidatesManager({ role }: ManagerProps) {
                     <h3 className="font-black text-slate-900 uppercase">
                         {editingCandidate ? 'Cập nhật ứng viên' : 'Thêm ứng viên mới'}
                     </h3>
+
+                    {/* Avatar preview */}
+                    <div className="flex flex-col items-center mb-5">
+                        <div className="w-32 h-32 rounded-full bg-slate-100 overflow-hidden border shadow-sm mb-2">
+                            {file ? (
+                                <img
+                                    src={
+                                        file
+                                            ? URL.createObjectURL(file)
+                                            : editingCandidate?.avatarUrl
+                                                ? `${process.env.NEXT_PUBLIC_BACKEND_URL}${editingCandidate.avatarUrl}`
+                                                : '/no-avatar.png'
+                                    }
+                                    className="w-full h-full object-cover"
+                                />
+                            ) : (
+                                <div className="w-full h-full flex items-center justify-center text-slate-400 text-xs">
+                                    No Image
+                                </div>
+                            )}
+                        </div>
+
+                        <label className="text-xs font-bold text-slate-500 cursor-pointer hover:text-blue-600">
+                            Chọn ảnh
+                            <input
+                                type="file"
+                                accept="image/*"
+                                onChange={(e) => setFile(e.target.files?.[0] || null)}
+                                className="hidden"
+                            />
+                        </label>
+                    </div>
 
                     <input
                         type="text"

@@ -41,6 +41,4 @@ export class AuditLogResponseDto {
 
   @ApiProperty({ example: '2026-04-01T16:00:00.000Z' })
   createdAt: Date;
-
-  targetName: string;
 }

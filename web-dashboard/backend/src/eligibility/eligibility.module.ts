@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 import { EligibilityService } from './eligibility.service';
-import { BallotRequestModule } from '../ballot-request/ballot-request.module';
+import { BallotRequestModule } from '../voting/ballot-request/ballot-request.module';
 
 @Module({
   imports: [BallotRequestModule],

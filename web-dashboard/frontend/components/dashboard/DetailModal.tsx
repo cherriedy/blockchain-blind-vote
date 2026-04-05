@@ -164,7 +164,7 @@ export default function DetailModal({ item, type, onClose }: { item: any; type: 
                                 <div className="bg-white p-6 rounded-xl w-96">
                                     <h3 className="font-bold mb-3">Giới thiệu bản thân</h3>
 
-                                    <textarea
+                                    <textarea required
                                         value={intro}
                                         onChange={(e) => setIntro(e.target.value)}
                                         className="w-full border p-2 rounded"

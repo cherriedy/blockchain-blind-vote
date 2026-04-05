@@ -20,9 +20,12 @@ export const adminService = {
     deleteElection: (id: string) => api.delete(`/elections/${id}`),
 
     // Quản lý quan hệ Election
-    getAllSelfNominees: (status?: string) =>
+    getAllSelfNominees: (status?: string, search?: string) =>
         api.get(`/elections/self-nominees`, {
-            params: status && status !== 'ALL' ? { status } : {},
+            params: {
+                ...(status && status !== 'ALL' ? { status } : {}),
+                ...(search ? { search } : {}),
+            },
         }),
     getSelfNominees: (id: string, status?: string) =>
         api.get(`/elections/${id}/self-nominees`, {
@@ -49,7 +52,7 @@ export const adminService = {
     removeAdminFromElection: (id: string, adminId: string) => api.delete(`/elections/${id}/admins`, { data: { adminId } }),
 
     // --- Polls ---
-    getPolls: () => api.get('/polls'),
+    getPolls: (search?: string) => api.get('/polls', { params: { search } }),
     getPollById: (id: string) => api.get(`/polls/${id}`),
     createPoll: (data: any) => api.post('/polls', data),
     updatePoll: (id: string, data: any) => api.put(`/polls/${id}`, data),
@@ -73,8 +76,8 @@ export const adminService = {
     toggleStatusVoter: (id: string, isActive: boolean) => api.patch(`/voters/${id}/status`, { isActive }),
 
     getCandidates: (search?: string) => api.get('/candidates', { params: { search } }),
-    createCandidate: (data: any) => api.post('/candidates', data),
-    updateCandidate: (id: string, data: any) => api.put(`/candidates/${id}`, data),
+    createCandidate: (data: FormData) => api.post('/candidates', data),
+    updateCandidate: (id: string, data: FormData) => api.put(`/candidates/${id}`, data),
     deleteCandidate: (id: string) => api.delete(`/candidates/${id}`),
 
     getAuditLogs: (search?: string) => api.get('/audit-logs', { params: { search } }),

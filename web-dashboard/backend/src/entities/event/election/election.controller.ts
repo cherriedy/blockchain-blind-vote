@@ -162,8 +162,12 @@ export class ElectionController {
   })
   async getAllSelfNominees(
     @Query('status') status?: SelfNominationStatus,
+    @Query('search') search?: string,
   ): Promise<SelfNominationResponseDto[]> {
-    const data = await this.electionService.getAllSelfNominations(status);
+    const data = await this.electionService.getAllSelfNominations(
+      status,
+      search,
+    );
     return data.map(toSelfNominationResponseDto);
   }
 

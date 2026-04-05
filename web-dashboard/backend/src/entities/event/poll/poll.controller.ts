@@ -9,6 +9,7 @@ import {
   Post,
   Put,
   Query,
+  Req,
   Request,
   UseGuards,
 } from '@nestjs/common';
@@ -99,8 +100,9 @@ export class PollController {
   })
   async getAllPolls(
     @Query() query: GetPollsQueryDto,
+    @Req() request: any,
   ): Promise<PollResponseDto[]> {
-    const polls = await this.pollService.getAll(query);
+    const polls = await this.pollService.getAll(request.admin, query);
     return toPollResponseDtos(polls);
   }
 

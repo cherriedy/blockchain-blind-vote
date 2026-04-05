@@ -35,5 +35,4 @@ export const toAuditLogResponseDto = (log: any): AuditLogResponseDto => ({
   targetId: log.targetId,
   details: log.details,
   createdAt: log.createdAt,
-  targetName: log.targetName || 'Unknown',
 });

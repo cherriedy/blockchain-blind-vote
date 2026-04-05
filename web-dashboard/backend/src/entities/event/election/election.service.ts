@@ -101,14 +101,15 @@ export class ElectionService {
     const normalizedStudentId =
       this.votingContextService.normalizeStudentId(studentId);
 
-    const candidate =
-      await this.candidateService.findByWalletAddressAndStudentId(
-        normalizedWallet,
-        normalizedStudentId,
-      );
+    const voter = await prisma.voter.findUnique({
+      where: {
+        walletAddress: normalizedWallet,
+        studentId: normalizedStudentId,
+      },
+    });
 
-    if (!candidate) {
-      throw new NotFoundException('Candidate not found');
+    if (!voter) {
+      throw new NotFoundException('Voter not found');
     }
 
     return prisma.election.findMany({
@@ -126,7 +127,7 @@ export class ElectionService {
    */
   async getAll(
     admin: Admin,
-    query?: { visibility?: string },
+    query?: { visibility?: string; search?: string },
   ): Promise<Election[]> {
     const where: any = {};
 
@@ -139,6 +140,24 @@ export class ElectionService {
           'Invalid visibility filter. Valid values are "public" or "private".',
         );
       }
+    }
+
+    // Search
+    if (query?.search) {
+      const orConditions: any[] = [
+        { name: { contains: query.search, mode: 'insensitive' } },
+        { description: { contains: query.search, mode: 'insensitive' } },
+        { status: { contains: query.search, mode: 'insensitive' } },
+      ];
+
+      // chỉ add id nếu hợp lệ
+      if (/^[a-fA-F0-9]{24}$/.test(query.search)) {
+        orConditions.push({
+          id: query.search,
+        });
+      }
+
+      where.OR = orConditions;
     }
 
     // Nếu là ELECTION_ADMIN, chỉ lấy các election được gán
@@ -213,6 +232,22 @@ export class ElectionService {
       throw new BadRequestException(
         'Cannot update election after voter list has been finalized',
       );
+    }
+
+    if (data.isAutomatic) {
+      if (!data.startAt || !data.endAt) {
+        throw new BadRequestException('Missing startAt or endAt');
+      }
+
+      const now = Date.now();
+
+      if (data.startAt < now) {
+        throw new BadRequestException('startAt cannot be in the past');
+      }
+
+      if (data.startAt >= data.endAt) {
+        throw new BadRequestException('startAt must be less than endAt');
+      }
     }
 
     // So sánh candidateIds
@@ -619,11 +654,46 @@ export class ElectionService {
     }
   }
 
-  async getAllSelfNominations(status?: SelfNominationStatus) {
+  async getAllSelfNominations(status?: SelfNominationStatus, search?: string) {
+    const filters: any[] = [];
+
+    // filter status
+    if (status) {
+      filters.push({ status });
+    }
+
+    // search
+    if (search) {
+      filters.push({
+        OR: [
+          {
+            candidate: {
+              name: { contains: search, mode: 'insensitive' },
+            },
+          },
+          {
+            candidate: {
+              studentId: { contains: search, mode: 'insensitive' },
+            },
+          },
+          {
+            election: {
+              name: { contains: search, mode: 'insensitive' },
+            },
+          },
+          {
+            admin: {
+              name: { contains: search, mode: 'insensitive' },
+            },
+          },
+        ],
+      });
+    }
+
+    const where = filters.length ? { AND: filters } : {};
+
     return prisma.selfNomination.findMany({
-      where: {
-        ...(status && { status }),
-      },
+      where,
       include: {
         candidate: true,
         election: true,
@@ -820,6 +890,13 @@ export class ElectionService {
       },
     });
 
+    const election = await prisma.election.findUnique({
+      where: { id: electionId },
+      select: { id: true, name: true },
+    });
+
+    if (!election) throw new NotFoundException('Election not found');
+
     const result = await prisma.$transaction(async (tx) => {
       await tx.selfNomination.update({
         where: { id: nomination.id },
@@ -842,7 +919,14 @@ export class ElectionService {
           targetType: 'ELECTION',
           targetId: electionId,
           details: {
-            candidateId,
+            election: {
+              id: election.id,
+              name: election.name,
+            },
+            candidate: {
+              id: candidate.id,
+              name: candidate.name,
+            },
             nominationId: nomination.id,
             previousStatus: 'PENDING',
             newStatus: 'APPROVED',
@@ -907,6 +991,13 @@ export class ElectionService {
       },
     });
 
+    const election = await prisma.election.findUnique({
+      where: { id: electionId },
+      select: { id: true, name: true },
+    });
+
+    if (!election) throw new NotFoundException('Election not found');
+
     const result = prisma.$transaction(async (tx) => {
       // Update status and notes
       await tx.selfNomination.update({
@@ -926,7 +1017,14 @@ export class ElectionService {
           targetType: 'ELECTION',
           targetId: electionId,
           details: {
-            candidateId,
+            election: {
+              id: election.id,
+              name: election.name,
+            },
+            candidate: {
+              id: candidate.id,
+              name: candidate.name,
+            },
             nominationId: nomination.id,
             reason: adminNotes || 'Does not meet requirements',
           },
@@ -985,6 +1083,13 @@ export class ElectionService {
       },
     });
 
+    const election = await prisma.election.findUnique({
+      where: { id: electionId },
+      select: { id: true, name: true },
+    });
+
+    if (!election) throw new NotFoundException('Election not found');
+
     const result = prisma.$transaction(async (tx) => {
       // Update status -> REQUEST_INFO
       await tx.selfNomination.update({
@@ -1004,7 +1109,14 @@ export class ElectionService {
           targetType: 'ELECTION',
           targetId: electionId,
           details: {
-            candidateId,
+            election: {
+              id: election.id,
+              name: election.name,
+            },
+            candidate: {
+              id: candidate.id,
+              name: candidate.name,
+            },
             nominationId: nomination.id,
             reason: adminNotes || 'Please provide additional information',
             previousStatus: 'PENDING',

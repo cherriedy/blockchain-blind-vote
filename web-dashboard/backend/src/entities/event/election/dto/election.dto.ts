@@ -282,6 +282,12 @@ export class GetElectionsQueryDto {
   @IsOptional()
   @IsIn(['public', 'private'])
   visibility?: string;
+
+  @ApiPropertyOptional({
+    example: 'name',
+  })
+  @IsOptional()
+  search?: string;
 }
 
 export class AssignAdminBodyDto {

@@ -41,7 +41,7 @@ export default function AuditLogManager() {
         fetchLogs();
     }, []);
 
-    const handleSearch = (e: React.FormEvent<HTMLFormElement>) => {
+    const handleSearch = (e: React.SyntheticEvent<HTMLFormElement>) => {
         e.preventDefault();
         fetchLogs(search);
     };
@@ -51,19 +51,42 @@ export default function AuditLogManager() {
             <h1 className="text-2xl font-bold mb-4">Audit Logs</h1>
 
             {/* Search */}
-            <form onSubmit={handleSearch} className="mb-6 flex gap-2">
-                <input
-                    type="text"
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    placeholder="Search by action, target, or admin..."
-                    className="flex-1 px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
+            <form
+                onSubmit={handleSearch}
+                className="mb-6 flex items-center gap-3 bg-white p-3 rounded-2xl shadow-sm border border-slate-100"
+            >
+                <div className="relative flex-1">
+                    <input
+                        type="text"
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                        placeholder="Search by action, target, or admin..."
+                        className="w-full pl-10 pr-4 py-2.5 text-sm border border-slate-200 rounded-xl 
+                 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500
+                 transition-all duration-200"
+                    />
+
+                    {/* Icon */}
+                    <svg
+                        className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        viewBox="0 0 24 24"
+                    >
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.3-4.3M10 18a8 8 0 100-16 8 8 0 000 16z" />
+                    </svg>
+                </div>
+
                 <button
                     type="submit"
-                    className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
+                    className="px-5 py-2.5 text-sm font-medium text-white rounded-xl
+               bg-gradient-to-r from-blue-500 to-blue-600
+               hover:from-blue-600 hover:to-blue-700
+               shadow-sm hover:shadow-md
+               transition-all duration-200 active:scale-95"
                 >
-                    Search
+                    Tìm kiếm
                 </button>
             </form>
 
@@ -74,7 +97,6 @@ export default function AuditLogManager() {
                         <tr className="text-xs font-semibold uppercase tracking-wide text-slate-500">
                             <th className="px-6 py-4 text-left">Hành động</th>
                             <th className="px-6 py-4 text-left">Loại</th>
-                            <th className="px-6 py-4 text-left">Tên</th>
                             <th className="px-6 py-4 text-left">Chi tiết</th>
                             <th className="px-6 py-4 text-left">Admin</th>
                             <th className="px-6 py-4 text-left">Thời gian</th>
@@ -111,17 +133,12 @@ export default function AuditLogManager() {
                                     <td className="px-6 py-4">
                                         <span
                                             className={`px-3 py-1 text-xs rounded-full font-medium ${log.targetType === "ELECTION"
-                                                    ? "bg-green-100 text-green-600"
-                                                    : "bg-purple-100 text-purple-600"
+                                                ? "bg-green-100 text-green-600"
+                                                : "bg-purple-100 text-purple-600"
                                                 }`}
                                         >
                                             {log.targetType}
                                         </span>
-                                    </td>
-
-                                    {/* NAME */}
-                                    <td className="px-6 py-4 font-medium text-slate-700">
-                                        {log.targetName}
                                     </td>
 
                                     {/* DETAILS */}

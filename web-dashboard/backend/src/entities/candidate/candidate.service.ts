@@ -40,7 +40,11 @@ export class CandidateService {
     });
   }
 
-  async create(data: CreateCandidateRequestDto, adminId: string) {
+  async create(
+    data: CreateCandidateRequestDto,
+    adminId: string,
+    avatarUrl: string | undefined,
+  ) {
     const normalizedWallet = this.votingContextService.normalizeWalletAddress(
       data.walletAddress,
     );
@@ -48,35 +52,45 @@ export class CandidateService {
       data.studentId,
     );
 
-    return prisma.$transaction(async (tx) => {
-      const candidate = await tx.candidate.create({
-        data: {
-          studentId: normalizedStudentId,
-          name: data.name,
-          bio: data.bio,
-          avatarUrl: data.avatarUrl,
-          walletAddress: normalizedWallet,
-        },
-      });
+    try {
+      return await prisma.$transaction(async (tx) => {
+        const candidate = await tx.candidate.create({
+          data: {
+            studentId: normalizedStudentId,
+            name: data.name,
+            bio: data.bio,
+            walletAddress: normalizedWallet,
+            avatarUrl,
+          },
+        });
 
-      await tx.auditLog.create({
-        data: {
-          adminId,
-          action: 'CREATE_CANDIDATE',
-          targetType: 'CANDIDATE',
-          targetId: candidate.id,
-          details: {
-            candidate: {
-              id: candidate.id,
-              name: candidate.name,
-              studentId: candidate.studentId,
+        await tx.auditLog.create({
+          data: {
+            adminId,
+            action: 'CREATE_CANDIDATE',
+            targetType: 'CANDIDATE',
+            targetId: candidate.id,
+            details: {
+              candidate: {
+                id: candidate.id,
+                name: candidate.name,
+                studentId: candidate.studentId,
+                avatarUrl: candidate.avatarUrl,
+              },
             },
           },
-        },
-      });
+        });
 
-      return candidate;
-    });
+        return candidate;
+      });
+    } catch (error: any) {
+      if (error.code === 'P2002') {
+        throw new ConflictException(
+          'Wallet address or studentId already exists',
+        );
+      }
+      throw error;
+    }
   }
 
   /**
@@ -155,14 +169,22 @@ export class CandidateService {
     });
   }
 
-  async update(id: string, data: UpdateCandidateRequestDto, adminId: string) {
+  async update(
+    id: string,
+    data: UpdateCandidateRequestDto,
+    adminId: string,
+    avatarUrl?: string,
+  ) {
     const existing = await prisma.candidate.findUnique({ where: { id } });
     if (!existing) throw new NotFoundException('Candidate not found');
 
     return prisma.$transaction(async (tx) => {
       const updated = await tx.candidate.update({
         where: { id },
-        data,
+        data: {
+          ...data,
+          ...(avatarUrl && { avatarUrl }),
+        },
       });
 
       await tx.auditLog.create({
@@ -176,11 +198,13 @@ export class CandidateService {
               name: existing.name,
               studentId: existing.studentId,
               bio: existing.bio,
+              avatarUrl: existing.avatarUrl,
             },
             after: {
               name: updated.name,
               studentId: updated.studentId,
               bio: updated.bio,
+              avatarUrl: existing.avatarUrl,
             },
           },
         },

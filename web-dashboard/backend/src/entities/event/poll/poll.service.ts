@@ -24,7 +24,10 @@ export class PollService {
    * @throws BadRequestException if an invalid visibility filter is provided.
    * Valid visibility values are "public" or "private". If no filter is provided, all polls are returned.
    */
-  async getAll(query?: { visibility?: string }): Promise<Poll[]> {
+  async getAll(
+    admin: Admin,
+    query?: { visibility?: string; search?: string },
+  ): Promise<Poll[]> {
     const where: any = {};
 
     if (query?.visibility) {
@@ -37,6 +40,44 @@ export class PollService {
           'Invalid visibility filter. Valid values are "public" or "private".',
         );
       }
+    }
+
+    // Search
+    if (query?.search) {
+      const orConditions: any[] = [
+        { name: { contains: query.search, mode: 'insensitive' } },
+        { description: { contains: query.search, mode: 'insensitive' } },
+        { status: { contains: query.search, mode: 'insensitive' } },
+      ];
+
+      // chỉ add id nếu hợp lệ
+      if (/^[a-fA-F0-9]{24}$/.test(query.search)) {
+        orConditions.push({
+          id: query.search,
+        });
+      }
+
+      where.OR = orConditions;
+    }
+
+    // Nếu là POLL_ADMIN, chỉ lấy các election được gán
+    if (admin.role === AdminRole.POLL_ADMIN) {
+      const assigned = await prisma.eventAdmin.findMany({
+        where: {
+          adminId: admin.id,
+          voteType: 'POLL',
+        },
+        select: { voteId: true },
+      });
+
+      const pollIds = assigned.map((e) => e.voteId);
+      where.id = { in: pollIds };
+    } else if (admin.role === AdminRole.SUPER_ADMIN) {
+      // SUPER_ADMIN xem tất cả -> không cần filter thêm
+    } else {
+      throw new BadRequestException(
+        'Admin does not have permission to view elections',
+      );
     }
 
     return prisma.poll.findMany({

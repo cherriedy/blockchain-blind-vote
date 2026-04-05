@@ -107,4 +107,10 @@ export class GetPollsQueryDto {
   @IsOptional()
   @IsIn(['public', 'private'])
   visibility?: string;
+
+  @ApiPropertyOptional({
+    example: 'name',
+  })
+  @IsOptional()
+  search?: string;
 }
