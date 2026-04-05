@@ -45,7 +45,7 @@ export class CreateElectionRequestDto extends CreateEventRequestDto {
   })
   @IsBoolean()
   @IsOptional()
-  voterListFinalized ?: boolean;
+  voterListFinalized?: boolean;
 }
 
 /** DTO for updating an election (all fields optional). */
@@ -97,14 +97,15 @@ export class SelfNominateDto {
   @ApiPropertyOptional({
     description:
       'An optional introduction or statement from the candidate as part of their self-nomination.',
-    example: 'I am passionate about serving our student community and have experience in leadership roles.',
+    example:
+      'I am passionate about serving our student community and have experience in leadership roles.',
   })
   @IsString()
   @IsOptional()
   introduction?: string;
 }
 
-export class ResubmitSelfNominateDto extends SelfNominateDto{
+export class ResubmitSelfNominateDto extends SelfNominateDto {
   @ApiPropertyOptional({
     example: 'Nguyen Van A',
   })
@@ -242,18 +243,18 @@ export class SelfNominationResponseDto {
   @ApiProperty({ example: '2026-03-15T08:30:00.000Z' })
   updatedAt: Date;
 
-  candidate: CandidateResponseDto
-  admin?: AdminResponseDto
-  election: ElectionResponseDto
+  candidate: CandidateResponseDto;
+  admin?: AdminResponseDto;
+  election: ElectionResponseDto;
 }
 
 export class EventAdminResponseDto {
   @ApiProperty({ example: '6800a1b2c3d4e5f6a7b8c9d0' })
   id: string;
   @ApiProperty({ example: '6800a1b2c3d4e5f6a7b8c9d1' })
-  adminId: string
+  adminId: string;
   @ApiProperty({ example: '6800a1b2c3d4e5f6a7b8c9d2' })
-  electionId: string
+  electionId: string;
   @ApiProperty({ example: '2026-03-15T08:00:00.000Z' })
   createdAt: Date;
   @ApiProperty({ example: '2026-03-15T08:30:00.000Z' })
@@ -305,14 +306,14 @@ export class RemoveAdminBodyDto {
 }
 
 export class RejectSelfNomineeDto {
-  @ApiProperty({ example: 'policy violation'})
+  @ApiProperty({ example: 'policy violation' })
   @IsOptional()
-  @IsString() 
+  @IsString()
   adminNotes?: string;
 }
 export class RequestInfoSelfNomineeDto {
-  @ApiProperty({ example: 'We need a clearer portrait photo.'})
+  @ApiProperty({ example: 'We need a clearer portrait photo.' })
   @IsOptional()
-  @IsString() 
+  @IsString()
   adminNotes?: string;
 }

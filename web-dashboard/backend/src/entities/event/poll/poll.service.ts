@@ -1,4 +1,8 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { Admin, AdminRole, EventVoter, Poll } from '@prisma/client';
 import { VotingEventType } from '../../../enums';
 import { EventVoterService } from '../voter';
@@ -11,7 +15,7 @@ export class PollService {
   constructor(
     private readonly eventVoterService: EventVoterService,
     private readonly votingContextService: VotingContextService,
-  ) { }
+  ) {}
 
   /**
    * Get all polls, optionally filtered by visibility.
@@ -36,7 +40,8 @@ export class PollService {
     }
 
     return prisma.poll.findMany({
-      where, orderBy: { createdAt: 'desc' },
+      where,
+      orderBy: { createdAt: 'desc' },
     });
   }
 
@@ -55,7 +60,10 @@ export class PollService {
    * @param pollId - The ID of the poll.
    * @returns A boolean indicating whether the admin is assigned to the poll.
    */
-  async isAdminAssignedToPoll(adminId: string, pollId: string): Promise<boolean> {
+  async isAdminAssignedToPoll(
+    adminId: string,
+    pollId: string,
+  ): Promise<boolean> {
     const assignment = await prisma.eventAdmin.findUnique({
       where: {
         adminId_voteType_voteId: {
@@ -96,13 +104,14 @@ export class PollService {
 
     // Chấp nhận nếu là POLL_ADMIN HOẶC SUPER_ADMIN
     const invalidAdmins = admins.filter(
-      a => a.role !== AdminRole.POLL_ADMIN && a.role !== AdminRole.SUPER_ADMIN
+      (a) =>
+        a.role !== AdminRole.POLL_ADMIN && a.role !== AdminRole.SUPER_ADMIN,
     );
 
     if (invalidAdmins.length > 0) {
-      const invalidNames = invalidAdmins.map(a => a.name).join(', ');
+      const invalidNames = invalidAdmins.map((a) => a.name).join(', ');
       throw new BadRequestException(
-        `Cannot assign. The following admins do not have required roles: ${invalidNames}`
+        `Cannot assign. The following admins do not have required roles: ${invalidNames}`,
       );
     }
 
@@ -129,7 +138,7 @@ export class PollService {
     }
 
     return prisma.poll.findUniqueOrThrow({
-      where: { id: pollId }
+      where: { id: pollId },
     });
   }
 
@@ -185,17 +194,21 @@ export class PollService {
     if (!existing) throw new NotFoundException('Poll not found');
 
     if (existing.status !== 'pending') {
-      throw new BadRequestException('Only poll with status PENDING can be updated');
+      throw new BadRequestException(
+        'Only poll with status PENDING can be updated',
+      );
     }
 
     if (existing.voterListFinalized) {
-      throw new BadRequestException('Cannot update poll after voter list has been finalized');
+      throw new BadRequestException(
+        'Cannot update poll after voter list has been finalized',
+      );
     }
 
     if (data.visibility === 'public') {
       const voters = await this.listVoters(id);
       if (voters.length > 0) {
-        const voterIds = voters.map(v => v.voterId);
+        const voterIds = voters.map((v) => v.voterId);
         await prisma.eventVoter.deleteMany({
           where: {
             voteId: id,
@@ -217,31 +230,29 @@ export class PollService {
    */
   async delete(id: string): Promise<Poll> {
     const poll = await prisma.poll.findUnique({
-      where: { id }
+      where: { id },
     });
 
     if (!poll) {
-      throw new NotFoundException("Poll not found");
+      throw new NotFoundException('Poll not found');
     }
 
-    if (poll.status !== "pending") {
+    if (poll.status !== 'pending') {
       throw new BadRequestException(
-        "Cannot delete poll that is ongoing or ended"
+        'Cannot delete poll that is ongoing or ended',
       );
     }
 
     if (poll.votes && Object.keys(poll.votes).length > 0) {
-      throw new BadRequestException(
-        "Cannot delete poll with votes"
-      );
+      throw new BadRequestException('Cannot delete poll with votes');
     }
 
     await prisma.eventAdmin.deleteMany({
-      where: { voteId: id, voteType: 'POLL' }
+      where: { voteId: id, voteType: 'POLL' },
     });
 
     return prisma.poll.delete({
-      where: { id }
+      where: { id },
     });
   }
 
@@ -270,15 +281,13 @@ export class PollService {
     id: string,
     voterIds: string[],
     canVote = true,
-    adminId?: string
+    adminId?: string,
   ): Promise<any> {
     const existing = await prisma.poll.findUnique({ where: { id } });
     if (!existing) throw new NotFoundException('Poll not found');
 
     if (existing.visibility === 'public') {
-      throw new BadRequestException(
-        'Cannot assign voters to a public poll',
-      );
+      throw new BadRequestException('Cannot assign voters to a public poll');
     }
 
     const existingVoters = await prisma.voter.findMany({
@@ -309,7 +318,7 @@ export class PollService {
     if (newVoters.length === 0) {
       return {
         message: 'All selected voters are already assigned to this poll',
-        count: 0
+        count: 0,
       };
     }
 
@@ -333,7 +342,7 @@ export class PollService {
           targetType: 'POLL',
           targetId: id,
           details: {
-            voters: newVoters.map(v => ({
+            voters: newVoters.map((v) => ({
               id: v.id,
               name: v.name,
               email: v.email,
@@ -360,7 +369,7 @@ export class PollService {
   async removeVoter(
     id: string,
     voterId: string,
-    adminId?: string
+    adminId?: string,
   ): Promise<string> {
     const existing = await prisma.poll.findUnique({ where: { id } });
     if (!existing) throw new NotFoundException('Poll not found');
@@ -387,10 +396,10 @@ export class PollService {
           details: {
             voter: voter
               ? {
-                id: voter.id,
-                name: voter.name,
-                email: voter.email,
-              }
+                  id: voter.id,
+                  name: voter.name,
+                  email: voter.email,
+                }
               : { id: voterId, name: 'Unknown' }, // fallback
           },
         },

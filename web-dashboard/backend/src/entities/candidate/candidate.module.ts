@@ -6,11 +6,9 @@ import { Reflector } from '@nestjs/core';
 import { AdminModule } from '../admin';
 
 @Module({
-  imports: [
-    AdminModule,
-  ],
+  imports: [AdminModule],
   controllers: [CandidateController],
   providers: [CandidateService, AdminAuthGuard, RolesGuard, Reflector],
   exports: [CandidateService],
 })
-export class CandidateModule { }
+export class CandidateModule {}

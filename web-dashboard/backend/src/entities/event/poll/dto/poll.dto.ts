@@ -50,7 +50,7 @@ export class CreatePollRequestDto extends CreateEventRequestDto {
 /**
  * Body DTO for updating a poll.
  */
-export class UpdatePollRequestDto extends PartialType(CreatePollRequestDto) { }
+export class UpdatePollRequestDto extends PartialType(CreatePollRequestDto) {}
 
 export class PollActionMessageResponseDto {
   @ApiProperty({ example: 'Voter removed from poll.' })

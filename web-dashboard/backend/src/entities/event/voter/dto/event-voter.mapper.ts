@@ -18,7 +18,7 @@ export const toEventVoterResponseDto = (
     createdAt: eventVoter.createdAt,
     updatedAt: eventVoter.updatedAt,
 
-    voter: eventVoter.voter ? toVoterResponseDto(eventVoter.voter) : undefined
+    voter: eventVoter.voter ? toVoterResponseDto(eventVoter.voter) : undefined,
   };
 };
 

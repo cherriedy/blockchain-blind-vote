@@ -29,7 +29,10 @@ export class EventVoterService {
     voteType: VotingEventType,
     voteId: string,
   ): Promise<EventVoter[]> {
-    return prisma.eventVoter.findMany({ where: { voteType, voteId }, include: { voter: true } });
+    return prisma.eventVoter.findMany({
+      where: { voteType, voteId },
+      include: { voter: true },
+    });
   }
 
   async findEligibleEventVoter(

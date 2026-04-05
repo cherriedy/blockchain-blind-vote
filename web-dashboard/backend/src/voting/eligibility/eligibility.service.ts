@@ -1,4 +1,8 @@
-import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { randomBytes } from 'crypto';
 import { ethers } from 'ethers';
 import { VotingContextService } from '../context';
@@ -16,7 +20,7 @@ export class EligibilityService {
   constructor(
     private readonly ballotRequestService: BallotRequestService,
     private readonly votingContextService: VotingContextService,
-  ) { }
+  ) {}
 
   /**
    *

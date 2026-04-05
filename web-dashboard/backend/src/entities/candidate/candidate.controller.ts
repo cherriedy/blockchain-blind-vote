@@ -38,7 +38,7 @@ import { diskStorage } from 'multer';
 @ApiTags('Candidates')
 @Controller('candidates')
 export class CandidateController {
-  constructor(private readonly candidateService: CandidateService) { }
+  constructor(private readonly candidateService: CandidateService) {}
 
   // ────────────────────────────────
   // Public Endpoints
@@ -110,8 +110,8 @@ export class CandidateController {
     @Query('walletAddress') walletAddress: string,
   ): Promise<CandidateResponseDto | null> {
     if (!walletAddress) {
-    throw new BadRequestException('walletAddress is required');
-  }
+      throw new BadRequestException('walletAddress is required');
+    }
     const candidate = await this.candidateService.getByWallet(walletAddress);
     return candidate ? toCandidateResponseDto(candidate) : null;
   }
@@ -125,7 +125,9 @@ export class CandidateController {
     type: CandidateResponseDto,
     isArray: true,
   })
-  async getAllCandidates(@Query('search') search?: string): Promise<CandidateResponseDto[]> {
+  async getAllCandidates(
+    @Query('search') search?: string,
+  ): Promise<CandidateResponseDto[]> {
     const candidates = await this.candidateService.getAll(search);
     return toCandidateResponseDtos(candidates);
   }
@@ -175,7 +177,11 @@ export class CandidateController {
     @Body() body: UpdateCandidateRequestDto,
     @Request() req: any,
   ): Promise<CandidateResponseDto> {
-    const candidate = await this.candidateService.update(param.id, body, req.admin.id);
+    const candidate = await this.candidateService.update(
+      param.id,
+      body,
+      req.admin.id,
+    );
     return toCandidateResponseDto(candidate);
   }
 
@@ -191,7 +197,10 @@ export class CandidateController {
     @Param() param: CandidateIdParamDto,
     @Request() req: any,
   ): Promise<CandidateResponseDto> {
-    const candidate = await this.candidateService.delete(param.id, req.admin.id);
+    const candidate = await this.candidateService.delete(
+      param.id,
+      req.admin.id,
+    );
     return toCandidateResponseDto(candidate);
   }
 }

@@ -30,7 +30,7 @@ import { Public } from 'src/shared';
 @ApiTags('Voters')
 @Controller('voters')
 export class VoterController {
-  constructor(private readonly voterService: VoterService) { }
+  constructor(private readonly voterService: VoterService) {}
 
   @Post()
   @ApiOperation({
@@ -44,17 +44,14 @@ export class VoterController {
   })
   @ApiResponse({ status: 201, description: 'Voter created successfully.' })
   @ApiResponse({ status: 400, description: 'Invalid input data.' })
-  async createVoter(
-    @Body() dto: CreateVoterRequestDto,
-    @Request() req: any
-  ) {
+  async createVoter(@Body() dto: CreateVoterRequestDto, @Request() req: any) {
     return this.voterService.create(
       dto.studentId,
       dto.walletAddress,
       dto.name,
       dto.email,
       dto.isActive,
-      req.admin.id
+      req.admin.id,
     );
   }
 
@@ -67,10 +64,7 @@ export class VoterController {
     status: 200,
     description: 'List of all voters returned successfully.',
   })
-  async getAllVoters(
-    @Query('search') search: string,
-    @Request() req: any
-  ) {
+  async getAllVoters(@Query('search') search: string, @Request() req: any) {
     return this.voterService.getAll(search);
   }
 
@@ -78,7 +72,7 @@ export class VoterController {
   @Public()
   @ApiOperation({
     summary: 'Get voter by student ID',
-    description: 'Retrieves a voter\'s details using their student ID.',
+    description: "Retrieves a voter's details using their student ID.",
   })
   @ApiParam({
     name: 'studentId',
@@ -112,13 +106,13 @@ export class VoterController {
   async setVoterStatus(
     @Param('id') id: string,
     @Body('isActive') isActive: boolean,
-    @Request() req: any
+    @Request() req: any,
   ) {
     return this.voterService.setVoterStatusById(
       id,
       isActive,
       req.admin.id,
-      req.admin.walletAddress
+      req.admin.walletAddress,
     );
   }
 
@@ -134,10 +128,7 @@ export class VoterController {
   })
   @ApiResponse({ status: 200, description: 'Voter deleted successfully.' })
   @ApiResponse({ status: 404, description: 'Voter not found.' })
-  async deleteVoter(
-    @Param() params: VoterIdParamDto,
-    @Request() req: any
-  ) {
-    return this.voterService.delete(params.id, req.admin.id,);
+  async deleteVoter(@Param() params: VoterIdParamDto, @Request() req: any) {
+    return this.voterService.delete(params.id, req.admin.id);
   }
 }

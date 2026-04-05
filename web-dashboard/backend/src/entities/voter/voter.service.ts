@@ -17,7 +17,7 @@ export class VoterService {
     @Inject(forwardRef(() => EventVoterService))
     private readonly eventVoterService: EventVoterService,
     private readonly votingContextService: VotingContextService,
-  ) { }
+  ) {}
 
   async findByWalletAddress(walletAddress: string): Promise<Voter | null> {
     const normalizedWallet =
@@ -47,9 +47,8 @@ export class VoterService {
     name: string,
     email: string,
     isActive = true,
-    adminId?: string
+    adminId?: string,
   ): Promise<{ message: string; voterId: string }> {
-
     const normalizedStudentId =
       this.votingContextService.normalizeStudentId(studentId);
 
@@ -140,11 +139,11 @@ export class VoterService {
         AND: [
           search
             ? {
-              OR: [
-                { studentId: { contains: search, mode: 'insensitive' } },
-                { name: { contains: search, mode: 'insensitive' } },
-              ],
-            }
+                OR: [
+                  { studentId: { contains: search, mode: 'insensitive' } },
+                  { name: { contains: search, mode: 'insensitive' } },
+                ],
+              }
             : {},
         ],
       },
@@ -156,7 +155,7 @@ export class VoterService {
     id: string,
     isActive: boolean,
     adminId: string,
-    currentAdminWallet: string
+    currentAdminWallet: string,
   ) {
     const voter = await prisma.voter.findUnique({ where: { id } });
 
@@ -169,7 +168,7 @@ export class VoterService {
     return prisma.$transaction(async (tx) => {
       const updated = await tx.voter.update({
         where: { id },
-        data: { isActive }
+        data: { isActive },
       });
 
       await tx.auditLog.create({
@@ -197,7 +196,7 @@ export class VoterService {
       return {
         message: 'Voter status updated',
         voterId: id,
-        isActive
+        isActive,
       };
     });
   }
@@ -238,7 +237,7 @@ export class VoterService {
         if (error instanceof Prisma.PrismaClientKnownRequestError) {
           if (error.code === 'P2014') {
             throw new BadRequestException(
-              'This voter is currently part of an election and cannot be removed.'
+              'This voter is currently part of an election and cannot be removed.',
             );
           }
         }

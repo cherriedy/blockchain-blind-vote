@@ -68,7 +68,7 @@ import { toAuditLogResponseDto } from 'src/entities/audit-log/dto/log.mapper';
 @Controller('elections')
 @UseGuards(ElectionPermissionGuard)
 export class ElectionController {
-  constructor(private readonly electionService: ElectionService) { }
+  constructor(private readonly electionService: ElectionService) {}
 
   // ────────────────────────────────
   // Public Voter Endpoints
@@ -103,7 +103,9 @@ export class ElectionController {
 
   @Get('my-self-nominations')
   @Public()
-  @ApiOperation({ summary: 'Get my self-nomination by walletAddress and studentId (public)' })
+  @ApiOperation({
+    summary: 'Get my self-nomination by walletAddress and studentId (public)',
+  })
   @ApiQuery({ name: 'walletAddress', required: true, type: String })
   @ApiQuery({ name: 'studentId', required: true, type: String })
   @ApiResponse({
@@ -123,7 +125,7 @@ export class ElectionController {
     }
     const result = await this.electionService.getMySelfNominations(
       walletAddress,
-      studentId
+      studentId,
     );
 
     return result.map(toSelfNominationResponseDto);
@@ -144,7 +146,7 @@ export class ElectionController {
   ): Promise<ElectionResponseDto[]> {
     const elections = await this.electionService.getPublicElections(
       walletAddress,
-      studentId
+      studentId,
     );
     return toElectionResponseDtos(elections);
   }
@@ -159,7 +161,7 @@ export class ElectionController {
     type: [SelfNominationResponseDto],
   })
   async getAllSelfNominees(
-    @Query('status') status?: SelfNominationStatus
+    @Query('status') status?: SelfNominationStatus,
   ): Promise<SelfNominationResponseDto[]> {
     const data = await this.electionService.getAllSelfNominations(status);
     return data.map(toSelfNominationResponseDto);
@@ -199,7 +201,7 @@ export class ElectionController {
   })
   async getAllElections(
     @Query() query: GetElectionsQueryDto,
-    @Req() request: any
+    @Req() request: any,
   ): Promise<ElectionResponseDto[]> {
     const admin = request.admin; // attach bởi AdminAuthGuard
     const elections = await this.electionService.getAll(admin, query);
@@ -226,7 +228,7 @@ export class ElectionController {
 
   // POST: /elections
   @Post()
-  @Roles(AdminRole.SUPER_ADMIN,)
+  @Roles(AdminRole.SUPER_ADMIN)
   @ApiOperation({ summary: 'Create a new election' })
   @ApiBody({ type: CreateElectionRequestDto })
   @ApiResponse({
@@ -258,13 +260,17 @@ export class ElectionController {
     @Body() body: UpdateElectionRequestDto,
     @Request() req: any,
   ): Promise<ElectionResponseDto> {
-    const election = await this.electionService.update(param.id, body, req.admin.id);
+    const election = await this.electionService.update(
+      param.id,
+      body,
+      req.admin.id,
+    );
     return toElectionResponseDto(election);
   }
 
   // DELETE: /elections/:id
   @Delete(':id')
-  @Roles(AdminRole.SUPER_ADMIN,)
+  @Roles(AdminRole.SUPER_ADMIN)
   @ApiOperation({ summary: 'Delete an election' })
   @ApiParam({ name: 'id', type: String })
   @ApiResponse({
@@ -323,10 +329,9 @@ export class ElectionController {
       param.id,
       body.voterIds,
       body.canVote,
-      req.admin.id
+      req.admin.id,
     );
   }
-
 
   // DELETE: /elections/:id/voters
   @Delete(':id/voters')
@@ -349,7 +354,7 @@ export class ElectionController {
     const message = await this.electionService.removeVoter(
       param.id,
       body.voterId,
-      req.admin.id
+      req.admin.id,
     );
     return toActionMessageResponseDto(message);
   }
@@ -366,9 +371,7 @@ export class ElectionController {
     type: AdminResponseDto,
     isArray: true,
   })
-  async listElectionAdmins(
-    @Param() param: ElectionIdParamDto,
-  ) {
+  async listElectionAdmins(@Param() param: ElectionIdParamDto) {
     return await this.electionService.listAdmins(param.id);
   }
 
@@ -420,7 +423,6 @@ export class ElectionController {
     return toActionMessageResponseDto(message);
   }
 
-
   // ────────────────────────────────
   // Self-Nomination Endpoints
   // ────────────────────────────────
@@ -455,10 +457,7 @@ export class ElectionController {
     @Param() param: ElectionIdParamDto,
     @Body() dto: SelfNominateDto,
   ): Promise<SelfNominationResponseDto> {
-    const election = await this.electionService.selfNominate(
-      param.id,
-      dto,
-    );
+    const election = await this.electionService.selfNominate(param.id, dto);
     return toSelfNominationResponseDto(election);
   }
 
@@ -466,7 +465,9 @@ export class ElectionController {
   @Get(':id/self-nominees')
   @Roles(AdminRole.SUPER_ADMIN, AdminRole.ELECTION_ADMIN)
   @ManagedElection()
-  @ApiOperation({ summary: 'Get all self-nominated candidates for an election' })
+  @ApiOperation({
+    summary: 'Get all self-nominated candidates for an election',
+  })
   @ApiParam({ name: 'id', type: String, description: 'Election ID' })
   @ApiResponse({
     status: 200,
@@ -477,7 +478,10 @@ export class ElectionController {
     @Param() param: ElectionIdParamDto,
     @Query('status') status?: SelfNominationStatus,
   ): Promise<SelfNominationResponseDto[]> {
-    const selfNominations = await this.electionService.getSelfNominations(param.id, status);
+    const selfNominations = await this.electionService.getSelfNominations(
+      param.id,
+      status,
+    );
     return selfNominations.map(toSelfNominationResponseDto);
   }
 
@@ -485,7 +489,9 @@ export class ElectionController {
   @Post(':id/self-nominees/:candidateId/approve')
   @Roles(AdminRole.SUPER_ADMIN)
   @ManagedElection()
-  @ApiOperation({ summary: 'Approve a self-nominated candidate for an election' })
+  @ApiOperation({
+    summary: 'Approve a self-nominated candidate for an election',
+  })
   @ApiParam({ name: 'id', type: String })
   @ApiParam({ name: 'candidateId', type: String })
   @ApiResponse({
@@ -495,22 +501,24 @@ export class ElectionController {
   })
   async approveSelfNominee(
     @Param() param: { id: string; candidateId: string },
-    @Request() req: any
+    @Request() req: any,
   ): Promise<AuditLogResponseDto> {
     const adminId = req.admin.id;
     const log = await this.electionService.approveSelfNominee(
       param.id,
       param.candidateId,
-      adminId
+      adminId,
     );
-    return toAuditLogResponseDto(log)
+    return toAuditLogResponseDto(log);
   }
 
   //DELETE	/elections/:id/self-nominees/:candidateId/reject
   @Patch(':id/self-nominees/:candidateId/reject')
   @Roles(AdminRole.SUPER_ADMIN)
   @ManagedElection()
-  @ApiOperation({ summary: 'Reject a self-nominated candidate for an election' })
+  @ApiOperation({
+    summary: 'Reject a self-nominated candidate for an election',
+  })
   @ApiParam({ name: 'id', type: String })
   @ApiParam({ name: 'candidateId', type: String })
   @ApiResponse({
@@ -521,7 +529,7 @@ export class ElectionController {
   async rejectSelfNominee(
     @Param() param: { id: string; candidateId: string },
     @Body() body: RejectSelfNomineeDto,
-    @Request() req: any
+    @Request() req: any,
   ): Promise<AuditLogResponseDto> {
     const adminId = req.admin.id;
 
@@ -529,7 +537,7 @@ export class ElectionController {
       param.id,
       param.candidateId,
       adminId,
-      body.adminNotes
+      body.adminNotes,
     );
 
     return toAuditLogResponseDto(log);
@@ -539,7 +547,9 @@ export class ElectionController {
   @Patch(':id/self-nominees/:candidateId/request-info')
   @Roles(AdminRole.SUPER_ADMIN)
   @ManagedElection()
-  @ApiOperation({ summary: 'Request more information from a self-nominated candidate' })
+  @ApiOperation({
+    summary: 'Request more information from a self-nominated candidate',
+  })
   @ApiParam({ name: 'id', type: String })
   @ApiParam({ name: 'candidateId', type: String })
   @ApiResponse({
@@ -550,7 +560,7 @@ export class ElectionController {
   async requestInfoSelfNominee(
     @Param() param: { id: string; candidateId: string },
     @Body() body: RequestInfoSelfNomineeDto,
-    @Request() req: any
+    @Request() req: any,
   ): Promise<AuditLogResponseDto> {
     const adminId = req.admin.id;
 
@@ -558,7 +568,7 @@ export class ElectionController {
       param.id,
       param.candidateId,
       adminId,
-      body.adminNotes
+      body.adminNotes,
     );
 
     return toAuditLogResponseDto(log);
@@ -579,7 +589,9 @@ export class ElectionController {
       }),
     }),
   )
-  @ApiOperation({ summary: 'Resubmit self-nomination after request for more info' })
+  @ApiOperation({
+    summary: 'Resubmit self-nomination after request for more info',
+  })
   @ApiParam({ name: 'id', type: String })
   @ApiResponse({
     status: 200,
@@ -591,7 +603,11 @@ export class ElectionController {
     @Body() body: ResubmitSelfNominateDto,
   ): Promise<SelfNominationResponseDto> {
     console.log(file);
-    const result = await this.electionService.resubmitSelfNomination(electionId, body, file);
+    const result = await this.electionService.resubmitSelfNomination(
+      electionId,
+      body,
+      file,
+    );
     return toSelfNominationResponseDto(result);
   }
 }

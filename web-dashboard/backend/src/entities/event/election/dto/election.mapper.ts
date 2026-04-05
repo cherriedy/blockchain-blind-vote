@@ -1,4 +1,10 @@
-import { AuditLog, Candidate, Election, Prisma, SelfNomination } from '@prisma/client';
+import {
+  AuditLog,
+  Candidate,
+  Election,
+  Prisma,
+  SelfNomination,
+} from '@prisma/client';
 import {
   ElectionResponseDto,
   ElectionCandidateResponseDto,
@@ -24,7 +30,7 @@ export const toElectionResponseDto = (
   candidateIds: election.candidateIds,
   allowSelfNomination: election.allowSelfNomination,
   voterListFinalized: election.voterListFinalized,
-  votes: (election.votes || {} )as Record<string, number>,
+  votes: (election.votes || {}) as Record<string, number>,
   createdAt: election.createdAt,
   updatedAt: election.updatedAt,
 });
@@ -61,7 +67,7 @@ export const toActionMessageResponseDto = (
 });
 
 type SelfNominationWithCandidate = Prisma.SelfNominationGetPayload<{
-  include: { candidate: true, admin?: true, election: true };
+  include: { candidate: true; admin?: true; election: true };
 }>;
 
 export const toSelfNominationResponseDto = (

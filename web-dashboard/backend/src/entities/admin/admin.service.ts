@@ -6,16 +6,12 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { VotingContextService } from '../../voting';
-import {
-  CreateAdminRequestDto,
-  UpdateAdminRequestDto,
-} from './dto';
+import { CreateAdminRequestDto, UpdateAdminRequestDto } from './dto';
 import { AdminRole, Prisma } from '@prisma/client';
 import { prisma } from 'prisma/prisma.service';
 
 @Injectable()
 export class AdminService {
-
   async getAll(search?: string, role?: AdminRole, currentAdminId?: string) {
     return prisma.admin.findMany({
       where: {
@@ -24,11 +20,11 @@ export class AdminService {
           role ? { role } : {},
           search
             ? {
-              OR: [
-                { name: { contains: search, mode: 'insensitive' } },
-                { walletAddress: { contains: search, mode: 'insensitive' } },
-              ],
-            }
+                OR: [
+                  { name: { contains: search, mode: 'insensitive' } },
+                  { walletAddress: { contains: search, mode: 'insensitive' } },
+                ],
+              }
             : {},
         ],
       },
@@ -43,7 +39,6 @@ export class AdminService {
 
   async create(data: CreateAdminRequestDto) {
     const wallet = data.walletAddress.trim().toLowerCase();
-
 
     const existing = await prisma.admin.findUnique({
       where: { walletAddress: wallet },
@@ -62,13 +57,23 @@ export class AdminService {
     });
   }
 
-  async update(id: string, data: UpdateAdminRequestDto, currentAdminId: string) {
+  async update(
+    id: string,
+    data: UpdateAdminRequestDto,
+    currentAdminId: string,
+  ) {
     if (id === currentAdminId && data.isActive === false) {
       throw new ForbiddenException('You cannot deactivate your own account');
     }
 
-    if (id === currentAdminId && data.role && data.role !== AdminRole.SUPER_ADMIN) {
-      throw new ForbiddenException('You cannot demote yourself from SUPER_ADMIN');
+    if (
+      id === currentAdminId &&
+      data.role &&
+      data.role !== AdminRole.SUPER_ADMIN
+    ) {
+      throw new ForbiddenException(
+        'You cannot demote yourself from SUPER_ADMIN',
+      );
     }
 
     return prisma.admin.update({
@@ -85,7 +90,7 @@ export class AdminService {
     const admin = await this.getById(id);
     if (admin.role === AdminRole.SUPER_ADMIN) {
       const superAdminCount = await prisma.admin.count({
-        where: { role: AdminRole.SUPER_ADMIN }
+        where: { role: AdminRole.SUPER_ADMIN },
       });
       if (superAdminCount <= 1) {
         throw new ForbiddenException('Cannot delete the last SUPER_ADMIN');
@@ -98,7 +103,7 @@ export class AdminService {
       if (error instanceof Prisma.PrismaClientKnownRequestError) {
         if (error.code === 'P2014') {
           throw new BadRequestException(
-            'This admin is currently part of an poll and cannot be removed.'
+            'This admin is currently part of an poll and cannot be removed.',
           );
         }
       }

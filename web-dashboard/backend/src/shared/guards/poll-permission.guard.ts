@@ -18,7 +18,7 @@ export class PollPermissionGuard implements CanActivate {
     private readonly reflector: Reflector,
     @Inject(forwardRef(() => PollService))
     private readonly pollService: PollService,
-  ) { }
+  ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const paramName = this.reflector.getAllAndOverride<string>(

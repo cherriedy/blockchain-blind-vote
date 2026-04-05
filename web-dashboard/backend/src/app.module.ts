@@ -12,11 +12,11 @@ import { ScheduleModule } from '@nestjs/schedule';
     EntitiesModule,
     VotingModule,
     AdminModule,
-    ScheduleModule.forRoot()
+    ScheduleModule.forRoot(),
   ],
   providers: [
     { provide: APP_GUARD, useClass: AdminAuthGuard },
     { provide: APP_GUARD, useClass: RolesGuard },
   ],
 })
-export class AppModule { }
+export class AppModule {}
