@@ -57,4 +57,22 @@ export class AuthenticationController {
       );
     }
   }
+
+  @Post('logout')
+  @ApiOperation({ summary: 'Logout and clear login challenge state' })
+  @ApiBody({ type: EligibilityChallengeRequestDto })
+  @ApiResponse({ status: 200, description: 'Logout processed.' })
+  async logout(@Body() body: EligibilityChallengeRequestDto) {
+    try {
+      return await this.eligibilityService.logout(
+        body.studentId,
+        body.walletAddress,
+      );
+    } catch (e) {
+      console.log('Error processing logout:', e);
+      throw new InternalServerErrorException(
+        'There was an error during handling your request. Please try again.',
+      );
+    }
+  }
 }

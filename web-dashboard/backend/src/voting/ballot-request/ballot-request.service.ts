@@ -70,4 +70,21 @@ export class BallotRequestService {
       },
     });
   }
+
+  /**
+   * Delete ballot request(s) matching the provided composite key.
+   * Uses deleteMany to avoid throwing when the record does not exist.
+   * @returns number of deleted records
+   */
+  async delete(
+    studentId: string,
+    walletAddress: string,
+    voteType: string,
+    voteId: string,
+  ): Promise<number> {
+    const result = await prisma.ballotRequest.deleteMany({
+      where: { studentId, walletAddress, voteType, voteId },
+    });
+    return result.count;
+  }
 }

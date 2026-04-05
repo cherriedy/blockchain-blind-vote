@@ -5,7 +5,7 @@ import type { Metadata } from 'next';
 
 // Cấu hình font
 const outfit = Inter({
-  subsets: ['latin',],
+  subsets: ['latin'],
   display: 'swap',
 });
 
@@ -14,17 +14,11 @@ export const metadata: Metadata = {
   description: 'Hệ thống bầu cử ẩn danh sử dụng blockchain',
 };
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="vi">
-      <body className={outfit.className}> 
-        <SnackbarProvider>
-          {children}
-        </SnackbarProvider>
+      <body className={outfit.className}>
+        <SnackbarProvider>{children}</SnackbarProvider>
       </body>
     </html>
   );

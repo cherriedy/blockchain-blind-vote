@@ -1,4 +1,4 @@
-import AccountCircleIcon from "@mui/icons-material/AccountCircle";
+import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 
 interface Candidate {
   id: string;
@@ -42,14 +42,16 @@ function CandidateRow({ candidate, voteCount, totalVotes }: CandidateRowProps) {
         {candidate.avatarUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
-            src={candidate.avatarUrl.startsWith('http')
-              ? candidate.avatarUrl
-              : `${process.env.NEXT_PUBLIC_BACKEND_URL}${candidate.avatarUrl}`}
+            src={
+              candidate.avatarUrl.startsWith('http')
+                ? candidate.avatarUrl
+                : `${process.env.NEXT_PUBLIC_BACKEND_URL}${candidate.avatarUrl}`
+            }
             alt={candidate.name}
             className="w-full h-full object-cover"
           />
         ) : (
-          <AccountCircleIcon sx={{ fontSize: 32, color: "#94a3b8" }} />
+          <AccountCircleIcon sx={{ fontSize: 32, color: '#94a3b8' }} />
         )}
       </div>
 
@@ -64,9 +66,7 @@ function CandidateRow({ candidate, voteCount, totalVotes }: CandidateRowProps) {
               <span className="text-xs font-black text-slate-700">
                 {voteCount.toLocaleString()}
               </span>
-              <span className="text-[10px] font-bold text-slate-400">
-                {pct}%
-              </span>
+              <span className="text-[10px] font-bold text-slate-400">{pct}%</span>
             </div>
           )}
         </div>
@@ -95,10 +95,7 @@ function CandidateSkeleton() {
   return (
     <div className="space-y-3">
       {[...Array(3)].map((_, i) => (
-        <div
-          key={i}
-          className="flex items-start gap-4 p-4 bg-slate-50 rounded-2xl animate-pulse"
-        >
+        <div key={i} className="flex items-start gap-4 p-4 bg-slate-50 rounded-2xl animate-pulse">
           <div className="w-12 h-12 bg-slate-200 rounded-xl shrink-0" />
           <div className="flex-1 space-y-2 pt-1">
             <div className="h-4 bg-slate-200 rounded w-1/2" />
@@ -111,11 +108,19 @@ function CandidateSkeleton() {
 }
 
 /** Renders a labeled group of candidates with a colored badge. */
-function CandidateSection({ label, badgeClass, candidates, votes, totalVotes }: CandidateSectionProps) {
+function CandidateSection({
+  label,
+  badgeClass,
+  candidates,
+  votes,
+  totalVotes,
+}: CandidateSectionProps) {
   return (
     <div>
       <div className="flex items-center gap-2 mb-2.5">
-        <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full ${badgeClass}`}>
+        <span
+          className={`text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full ${badgeClass}`}
+        >
           {label}
         </span>
         <span className="text-[9px] font-bold text-slate-400">{candidates.length}</span>
@@ -155,11 +160,7 @@ export default function CandidateList({
   if (loading) return <CandidateSkeleton />;
 
   if (error) {
-    return (
-      <p className="text-xs font-bold text-red-400 italic text-center py-4">
-        {error}
-      </p>
-    );
+    return <p className="text-xs font-bold text-red-400 italic text-center py-4">{error}</p>;
   }
 
   if (assigned.length === 0 && selfNominated.length === 0) {

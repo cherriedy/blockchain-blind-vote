@@ -188,6 +188,31 @@ export class EligibilityService {
   }
 
   /**
+   * Logout handler: removes any login-scoped ballot request so that the next login
+   * will require a fresh eligibility challenge.
+   *
+   * @param studentId - student identifier
+   * @param walletAddress - wallet address
+   * @returns an object with deleted count
+   */
+  async logout(studentId: string, walletAddress: string) {
+    const normalizedStudentId =
+      this.votingContextService.normalizeStudentId(studentId);
+    const normalizedWallet =
+      this.votingContextService.normalizeWalletAddress(walletAddress);
+
+    // Remove LOGIN-scoped ballot requests (use service method to avoid exceptions)
+    const deleted = await this.ballotRequestService.delete(
+      normalizedStudentId,
+      normalizedWallet,
+      'LOGIN',
+      'LOGIN',
+    );
+
+    return { deleted };
+  }
+
+  /**
    * Resolves the visibility of a voting event based on its type and identifier.
    *
    * @param voteType - The type of the voting event

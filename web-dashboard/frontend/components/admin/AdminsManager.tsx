@@ -43,9 +43,9 @@ export default function AdminsManager() {
   const handleCreate = async () => {
     try {
       await adminService.createAdmin(form);
-      showMessage("Tạo thành công.", 'success');
+      showMessage('Tạo thành công.', 'success');
 
-      setForm({ name: '', walletAddress: '', role: 'ELECTION_ADMIN', isActive: true, });
+      setForm({ name: '', walletAddress: '', role: 'ELECTION_ADMIN', isActive: true });
       setShowCreate(false);
       fetchAdmins();
     } catch (err: any) {
@@ -65,10 +65,10 @@ export default function AdminsManager() {
 
     try {
       await adminService.updateAdmin(editingAdmin.id, form);
-      showMessage("Cập nhật thành công.", 'success');
+      showMessage('Cập nhật thành công.', 'success');
 
       setEditingAdmin(null);
-      setForm({ name: '', walletAddress: '', role: 'ELECTION_ADMIN', isActive: true, });
+      setForm({ name: '', walletAddress: '', role: 'ELECTION_ADMIN', isActive: true });
       fetchAdmins();
     } catch (err: any) {
       console.error(err);
@@ -87,7 +87,7 @@ export default function AdminsManager() {
 
     try {
       await adminService.deleteAdmin(id);
-      showMessage("Xóa thành công.", 'success');
+      showMessage('Xóa thành công.', 'success');
 
       fetchAdmins();
     } catch (err: any) {
@@ -133,7 +133,11 @@ export default function AdminsManager() {
             strokeWidth="2"
             viewBox="0 0 24 24"
           >
-            <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.3-4.3M10 18a8 8 0 100-16 8 8 0 000 16z" />
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M21 21l-4.3-4.3M10 18a8 8 0 100-16 8 8 0 000 16z"
+            />
           </svg>
         </div>
 
@@ -157,7 +161,7 @@ export default function AdminsManager() {
               name: '',
               walletAddress: '',
               role: 'ELECTION_ADMIN',
-              isActive: true
+              isActive: true,
             });
           }}
           className="px-4 py-2 bg-green-600 text-white rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-green-700 transition-all"
@@ -168,7 +172,9 @@ export default function AdminsManager() {
 
       {(showCreate || editingAdmin) && (
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-4">
-          <h3 className="font-black text-slate-900 uppercase">{editingAdmin ? 'Cập nhật admin' : 'Thêm admin mới'}</h3>
+          <h3 className="font-black text-slate-900 uppercase">
+            {editingAdmin ? 'Cập nhật admin' : 'Thêm admin mới'}
+          </h3>
           <input
             type="text"
             placeholder="Tên"
@@ -200,24 +206,24 @@ export default function AdminsManager() {
           </select>
 
           <div className="flex items-center justify-between bg-slate-50 px-4 py-3 rounded-lg">
-            <span className="text-sm font-semibold text-slate-700">
-              Trạng thái hoạt động
-            </span>
+            <span className="text-sm font-semibold text-slate-700">Trạng thái hoạt động</span>
 
             <button
               type="button"
               onClick={() =>
-                setForm(prev => ({
+                setForm((prev) => ({
                   ...prev,
-                  isActive: !prev.isActive
+                  isActive: !prev.isActive,
                 }))
               }
-              className={`relative w-12 h-6 rounded-full transition-all ${form.isActive ? 'bg-green-500' : 'bg-slate-300'
-                }`}
+              className={`relative w-12 h-6 rounded-full transition-all ${
+                form.isActive ? 'bg-green-500' : 'bg-slate-300'
+              }`}
             >
               <span
-                className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-all ${form.isActive ? 'translate-x-6' : ''
-                  }`}
+                className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-all ${
+                  form.isActive ? 'translate-x-6' : ''
+                }`}
               />
             </button>
           </div>
@@ -245,7 +251,9 @@ export default function AdminsManager() {
       {loading ? (
         <div className="h-64 flex flex-col items-center justify-center">
           <div className="w-10 h-10 border-4 border-slate-300 border-t-slate-900 rounded-full animate-spin mb-4"></div>
-          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Đang tải...</p>
+          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+            Đang tải...
+          </p>
         </div>
       ) : (
         <table className="w-full bg-white rounded-2xl overflow-hidden shadow-sm">
@@ -264,8 +272,13 @@ export default function AdminsManager() {
 
                 <td className="px-6 py-4 text-sm font-mono">{admin.walletAddress}</td>
                 <td className="px-6 py-4">
-                  <span className={`px-2 py-1 rounded text-[10px] font-bold ${admin.role === 'SUPER_ADMIN' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'
-                    }`}>
+                  <span
+                    className={`px-2 py-1 rounded text-[10px] font-bold ${
+                      admin.role === 'SUPER_ADMIN'
+                        ? 'bg-purple-100 text-purple-700'
+                        : 'bg-blue-100 text-blue-700'
+                    }`}
+                  >
                     {admin.role}
                   </span>
                 </td>
@@ -277,15 +290,17 @@ export default function AdminsManager() {
                         name: admin.name,
                         walletAddress: admin.walletAddress,
                         role: admin.role,
-                        isActive: admin.isActive
+                        isActive: admin.isActive,
                       });
                     }}
                     className="text-blue-500 text-xs font-bold mr-4 cursor-pointer"
                   >
                     Sửa
                   </button>
-                  <button onClick={() => handleDelete(admin.id)}
-                    className="text-red-500 font-bold text-xs cursor-pointer">
+                  <button
+                    onClick={() => handleDelete(admin.id)}
+                    className="text-red-500 font-bold text-xs cursor-pointer"
+                  >
                     Xóa
                   </button>
                 </td>

@@ -1,4 +1,4 @@
-import publicApi from "@/lib/publicApi";
+import api from '@/lib/api';
 
 export const authService = {
   createEligibilityChallenge: (
@@ -7,7 +7,7 @@ export const authService = {
     voteType?: string,
     voteId?: string,
   ) =>
-    publicApi.post("/auth/challenge", {
+    api.post('/auth/challenge', {
       studentId,
       walletAddress,
       voteType,
@@ -21,13 +21,16 @@ export const authService = {
     voteType?: string,
     voteId?: string,
   ) =>
-    publicApi.post("/auth/verify-challenge", {
+    api.post('/auth/verify-challenge', {
       studentId,
       walletAddress,
       signature,
       voteType,
       voteId,
     }),
+
+  logout: (studentId: string, walletAddress: string) =>
+    api.post('/auth/logout', { studentId, walletAddress }),
 };
 
 export default authService;
