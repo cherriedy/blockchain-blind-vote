@@ -64,6 +64,8 @@ export default function PollsManager({ role }: ManagerProps) {
         payload.isAutomatic = true;
         payload.startAt = new Date(data.startAt).getTime();
         payload.endAt = new Date(data.endAt).getTime();
+      } else {
+        payload.isAutomatic = false;
       }
 
       if (!editingPoll) {
@@ -160,6 +162,26 @@ export default function PollsManager({ role }: ManagerProps) {
   const handleSearch = (e: React.SyntheticEvent<HTMLFormElement>) => {
     e.preventDefault();
     fetchPolls(search);
+  };
+
+  const handleStartPoll = async (id: string) => {
+    try {
+      await adminService.startPoll(id);
+      showMessage('Đã bắt đầu khảo sát', 'success');
+      await fetchPolls();
+    } catch (err: any) {
+      showMessage(err?.response?.data?.message || 'Lỗi', 'error');
+    }
+  };
+
+  const handleEndPoll = async (id: string) => {
+    try {
+      await adminService.endPoll(id);
+      showMessage('Đã kết thúc khảo sát', 'success');
+      await fetchPolls();
+    } catch (err: any) {
+      showMessage(err?.response?.data?.message || 'Lỗi', 'error');
+    }
   };
 
   return (
@@ -288,6 +310,29 @@ export default function PollsManager({ role }: ManagerProps) {
 
                 {/* ACTION */}
                 <div className="border-t border-slate-100 pt-4 flex gap-2 justify-end">
+                  {/* START / END BUTTON */}
+                  {!poll.isAutomatic && (
+                    <>
+                      {poll.status === 'pending' && (
+                        <button
+                          onClick={() => handleStartPoll(poll.id)}
+                          className="px-3 py-1.5 bg-green-50 text-green-600 rounded-lg text-xs font-bold hover:bg-green-100"
+                        >
+                          Bắt đầu
+                        </button>
+                      )}
+
+                      {poll.status === 'active' && (
+                        <button
+                          onClick={() => handleEndPoll(poll.id)}
+                          className="px-3 py-1.5 bg-blue-50 text-blue-600 rounded-lg text-xs font-bold hover:bg-blue-100"
+                        >
+                          Kết thúc
+                        </button>
+                      )}
+                    </>
+                  )}
+
                   <button
                     onClick={() => {
                       setEditingPoll(poll);

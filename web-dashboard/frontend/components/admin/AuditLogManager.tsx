@@ -74,7 +74,6 @@ export default function AuditLogManager() {
             <tr className="text-xs font-semibold uppercase tracking-wide text-slate-500">
               <th className="px-6 py-4 text-left">Hành động</th>
               <th className="px-6 py-4 text-left">Loại</th>
-              <th className="px-6 py-4 text-left">Tên</th>
               <th className="px-6 py-4 text-left">Chi tiết</th>
               <th className="px-6 py-4 text-left">Admin</th>
               <th className="px-6 py-4 text-left">Thời gian</th>
@@ -116,9 +115,6 @@ export default function AuditLogManager() {
                       {log.targetType}
                     </span>
                   </td>
-
-                  {/* NAME */}
-                  <td className="px-6 py-4 font-medium text-slate-700">{log.targetName}</td>
 
                   {/* DETAILS */}
                   <td className="px-6 py-4 max-w-[300px]">

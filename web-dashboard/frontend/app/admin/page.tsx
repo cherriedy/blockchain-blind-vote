@@ -9,15 +9,15 @@ import CandidatesManager from '@/components/admin/CandidatesManager';
 import { AdminRole, Admin } from '@/lib/types/admin';
 import AdminsManager from '@/components/admin/AdminsManager';
 import { adminService } from '@/services/admin.service';
-import SelfNominationManager from '@/components/admin/self-nominations/SelfNominationManager';
 import { useSnackbar } from '@/components/core/SnackbarContext';
 import AuditLogManager from '@/components/admin/AuditLogManager';
+import SelfNominationManager from '@/components/admin/self-nominations/SelfNominationManager';
 
 export default function AdminDashboard() {
   const router = useRouter();
   const [role, setRole] = useState<AdminRole | null>(null);
   const [admin, setAdmin] = useState<Admin>();
-  const [activeTab, setActiveTab] = useState<string>('self-nomination');
+  const [activeTab, setActiveTab] = useState<string>('nomination');
   const [loading, setLoading] = useState<boolean>(true);
 
   useEffect(() => {
@@ -43,10 +43,10 @@ export default function AdminDashboard() {
   const canSeeTab = (tabName: string) => {
     if (role === 'SUPER_ADMIN') return true;
     if (role === 'ELECTION_ADMIN') {
-      return ['self-nomination, elections', 'voters', 'candidates'].includes(tabName);
+      return ['nomination', 'elections', 'voters', 'candidates'].includes(tabName);
     }
     if (role === 'POLL_ADMIN') {
-      return ['self-nomination, polls', 'voters', 'candidates'].includes(tabName);
+      return ['polls', 'voters', 'candidates'].includes(tabName);
     }
     return false;
   };
@@ -105,10 +105,10 @@ export default function AdminDashboard() {
           <>
             {/* ── Tabs ── */}
             <div className="flex items-center gap-2 mb-8 overflow-x-auto pb-2">
-              {role === 'SUPER_ADMIN' && (
+              {canSeeTab('nomination') && (
                 <TabButton
-                  active={activeTab === 'self-nomination'}
-                  onClick={() => setActiveTab('self-nomination')}
+                  active={activeTab === 'nomination'}
+                  onClick={() => setActiveTab('nomination')}
                   label="Tự ứng cử"
                 />
               )}
@@ -162,8 +162,8 @@ export default function AdminDashboard() {
             </div>
 
             <div className="tab-content">
-              {activeTab === 'self-nomination' && canSeeTab('self-nomination') && (
-                <SelfNominationManager role={role} />
+              {activeTab === 'nomination' && canSeeTab('nomination') && (
+                <SelfNominationManager />
               )}
               {activeTab === 'elections' && canSeeTab('elections') && (
                 <ElectionsManager role={role} />
@@ -187,11 +187,10 @@ function TabButton({ active, onClick, label }: any) {
   return (
     <button
       onClick={onClick}
-      className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${
-        active
-          ? 'bg-slate-900 text-white shadow-lg'
-          : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-      }`}
+      className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${active
+        ? 'bg-slate-900 text-white shadow-lg'
+        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+        }`}
     >
       {label}
     </button>

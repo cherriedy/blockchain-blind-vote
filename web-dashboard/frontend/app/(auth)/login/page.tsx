@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { ethers } from 'ethers';
 import { adminService } from '@/services/admin.service';
 import { authService } from '@/services/auth.service';
+import { publicApiService } from '@/services/public.service';
 
 export default function LoginPage() {
   const [studentId, setStudentId] = useState<string>('');
@@ -105,7 +106,7 @@ export default function LoginPage() {
 
     try {
       // 1) Fetch voter and basic checks
-      const res = await adminService.getVoterById(trimmedStudentId);
+      const res = await publicApiService.getVoterById(trimmedStudentId);
       const voter = res.data;
 
       if (!voter) {

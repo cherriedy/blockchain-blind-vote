@@ -5,6 +5,7 @@ interface Candidate {
   name: string;
   bio?: string;
   avatarUrl?: string;
+  voteCount?: number; // Optional pre-calculated vote count
 }
 
 interface CandidateRowProps {
@@ -17,16 +18,15 @@ interface CandidateSectionProps {
   label: string;
   badgeClass: string;
   candidates: Candidate[];
-  votes: Record<string, number>;
   totalVotes: number;
 }
 
 interface CandidateListProps {
   assigned?: Candidate[];
   selfNominated?: Candidate[];
-  votes?: Record<string, number>;
   loading?: boolean;
   error?: string;
+  totalVotes?: number;
 }
 
 /**
@@ -112,7 +112,6 @@ function CandidateSection({
   label,
   badgeClass,
   candidates,
-  votes,
   totalVotes,
 }: CandidateSectionProps) {
   return (
@@ -135,7 +134,7 @@ function CandidateSection({
             <CandidateRow
               key={c.id}
               candidate={c}
-              voteCount={Number(votes[c.id] ?? 0)}
+              voteCount={c.voteCount ?? 0}
               totalVotes={totalVotes}
             />
           ))}
@@ -151,11 +150,10 @@ function CandidateSection({
 export default function CandidateList({
   assigned = [],
   selfNominated = [],
-  votes = {},
   loading,
   error,
+  totalVotes = 0,
 }: CandidateListProps) {
-  const totalVotes = Object.values(votes).reduce((a, b) => a + Number(b), 0);
 
   if (loading) return <CandidateSkeleton />;
 
@@ -178,7 +176,6 @@ export default function CandidateList({
         label="Được chỉ định"
         badgeClass="bg-blue-50 text-blue-600"
         candidates={assigned}
-        votes={votes}
         totalVotes={totalVotes}
       />
 
@@ -193,7 +190,6 @@ export default function CandidateList({
           label="Tự đề cử"
           badgeClass="bg-amber-50 text-amber-600"
           candidates={selfNominated}
-          votes={votes}
           totalVotes={totalVotes}
         />
       )}

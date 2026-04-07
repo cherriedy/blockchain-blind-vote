@@ -98,6 +98,8 @@ export default function ElectionsManager({ role }: ManagerProps) {
         payload.isAutomatic = true;
         payload.startAt = start;
         payload.endAt = end;
+      } else {
+        payload.isAutomatic = false;
       }
 
       if (!editingElection) {
@@ -207,6 +209,26 @@ export default function ElectionsManager({ role }: ManagerProps) {
     fetchElections(search);
   };
 
+  const handleStartElection = async (id: string) => {
+    try {
+      await adminService.startElection(id);
+      showMessage('Đã bắt đầu cuộc bầu cử', 'success');
+      await fetchElections();
+    } catch (err: any) {
+      showMessage(err?.response?.data?.message || 'Lỗi', 'error');
+    }
+  };
+
+  const handleEndElection = async (id: string) => {
+    try {
+      await adminService.endElection(id);
+      showMessage('Đã kết thúc cuộc bầu cử', 'success');
+      await fetchElections();
+    } catch (err: any) {
+      showMessage(err?.response?.data?.message || 'Lỗi', 'error');
+    }
+  };
+
   return (
     <div className="space-y-6">
       <h2 className="text-xl font-black uppercase tracking-tight">Quản lý cuộc bầu cử</h2>
@@ -313,13 +335,39 @@ export default function ElectionsManager({ role }: ManagerProps) {
                     </div>
                   </div>
                 </div>
+
                 <div className="border-t border-slate-100 pt-4 flex gap-2 justify-end">
+
+                  {/* START / END BUTTON */}
+                  {!election.isAutomatic && (
+                    <>
+                      {election.status === 'pending' && (
+                        <button
+                          onClick={() => handleStartElection(election.id)}
+                          className="px-3 py-1.5 bg-green-50 text-green-600 rounded-lg text-xs font-bold hover:bg-green-100"
+                        >
+                          Bắt đầu
+                        </button>
+                      )}
+
+                      {election.status === 'active' && (
+                        <button
+                          onClick={() => handleEndElection(election.id)}
+                          className="px-3 py-1.5 bg-blue-50 text-blue-600 rounded-lg text-xs font-bold hover:bg-blue-100"
+                        >
+                          Kết thúc
+                        </button>
+                      )}
+                    </>
+                  )}
+
                   <button
                     onClick={() => handleEdit(election)}
                     className="px-3 py-1.5 bg-yellow-50 text-yellow-600 rounded-lg text-xs font-bold"
                   >
                     Sửa
                   </button>
+
                   {role === 'SUPER_ADMIN' && (
                     <button
                       onClick={() => deleteElection(election.id)}

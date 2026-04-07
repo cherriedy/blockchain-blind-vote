@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -34,7 +35,7 @@ export class ElectionService {
     private readonly candidateService: CandidateService,
     private readonly votingContextService: VotingContextService,
     private readonly mailService: MailService,
-  ) {}
+  ) { }
 
   async getCandidates(
     id: string,
@@ -90,32 +91,6 @@ export class ElectionService {
       },
     });
     return !!assignment;
-  }
-
-  async getPublicElections(
-    walletAddress: string,
-    studentId: string,
-  ): Promise<Election[]> {
-    const normalizedWallet =
-      this.votingContextService.normalizeWalletAddress(walletAddress);
-    const normalizedStudentId =
-      this.votingContextService.normalizeStudentId(studentId);
-
-    const voter = await prisma.voter.findUnique({
-      where: {
-        walletAddress: normalizedWallet,
-        studentId: normalizedStudentId,
-      },
-    });
-
-    if (!voter) {
-      throw new NotFoundException('Voter not found');
-    }
-
-    return prisma.election.findMany({
-      where: { visibility: 'public' },
-      orderBy: { createdAt: 'desc' },
-    });
   }
 
   /**
@@ -383,6 +358,75 @@ export class ElectionService {
   }
 
   /**
+   * Start an election by changing its status to 'active'.
+   * @param id - The ID of the election to start.
+   * @returns The updated election object with status 'active'.
+   * @throws NotFoundException if the election does not exist.
+   * @throws BadRequestException if the election is automatic or not in 'pending' status.
+    */
+  async startElection(id: string) {
+    const election = await prisma.election.findUnique({
+      where: { id },
+    });
+
+    if (!election) {
+      throw new NotFoundException('Không tìm thấy cuộc bầu cử');
+    }
+
+    if (election.isAutomatic) {
+      throw new BadRequestException('Cuộc bầu cử tự động không thể bắt đầu thủ công');
+    }
+
+    if (election.status !== 'pending') {
+      throw new BadRequestException('Chỉ có thể bắt đầu khi đang ở trạng thái pending');
+    }
+
+    if (!election.voterListFinalized) {
+      throw new BadRequestException('Chưa chốt danh sách cử tri');
+    }
+
+    if (!election.candidateIds?.length) {
+      throw new BadRequestException('Chưa có ứng cử viên');
+    }
+
+    return prisma.election.update({
+      where: { id },
+      data: {
+        status: 'active',
+        startAt: Date.now(),
+      },
+    });
+  }
+
+  async endElection(id: string) {
+    const election = await prisma.election.findUnique({
+      where: { id },
+    });
+
+    if (!election) {
+      throw new NotFoundException('Không tìm thấy cuộc bầu cử');
+    }
+
+    // Không cho end nếu là auto
+    if (election.isAutomatic) {
+      throw new BadRequestException('Cuộc bầu cử tự động không thể kết thúc thủ công');
+    }
+
+    // Sai trạng thái
+    if (election.status !== 'active') {
+      throw new BadRequestException('Chỉ có thể kết thúc khi đang diễn ra');
+    }
+
+    return prisma.election.update({
+      where: { id },
+      data: {
+        status: 'completed',
+        endAt: Date.now(),
+      },
+    });
+  }
+
+  /**
    * List all voters assigned to an election.
    * @param id - The ID of the election.
    * @returns An array of EventVoter records.
@@ -529,10 +573,10 @@ export class ElectionService {
           details: {
             voter: voter
               ? {
-                  id: voter.id,
-                  name: voter.name,
-                  email: voter.email,
-                }
+                id: voter.id,
+                name: voter.name,
+                email: voter.email,
+              }
               : { id: voterId, name: 'Unknown' }, // fallback
           },
         },
@@ -654,7 +698,11 @@ export class ElectionService {
     }
   }
 
-  async getAllSelfNominations(status?: SelfNominationStatus, search?: string) {
+  async getAllSelfNominations(
+    admin: Admin,
+    status?: SelfNominationStatus,
+    search?: string
+  ) {
     const filters: any[] = [];
 
     // filter status
@@ -690,6 +738,28 @@ export class ElectionService {
       });
     }
 
+    // permission filter
+    if (admin.role === AdminRole.ELECTION_ADMIN) {
+      const assigned = await prisma.eventAdmin.findMany({
+        where: {
+          adminId: admin.id,
+          voteType: 'ELECTION',
+        },
+        select: { voteId: true },
+      });
+
+      const electionIds = assigned.map((e) => e.voteId);
+
+      // add vào filters
+      filters.push({
+        electionId: { in: electionIds },
+      });
+    } else if (admin.role !== AdminRole.SUPER_ADMIN) {
+      throw new ForbiddenException(
+        'Admin does not have permission to view self nominations'
+      );
+    }
+
     const where = filters.length ? { AND: filters } : {};
 
     return prisma.selfNomination.findMany({
@@ -705,7 +775,29 @@ export class ElectionService {
     });
   }
 
-  async getSelfNominations(electionId: string, status?: SelfNominationStatus) {
+  async getSelfNominations(
+    admin: Admin,
+    electionId: string,
+    status?: SelfNominationStatus
+  ) {
+    if (admin.role === AdminRole.ELECTION_ADMIN) {
+      const canManage = await this.isAdminAssignedToElection(
+        admin.id,
+        electionId
+      );
+
+      if (!canManage) {
+        throw new ForbiddenException(
+          'ELECTION_ADMIN does not have permission for this election'
+        );
+      }
+    } else if (admin.role !== AdminRole.SUPER_ADMIN) {
+      throw new ForbiddenException(
+        'Admin does not have permission to view self nominations'
+      );
+    }
+
+    // query data
     return prisma.selfNomination.findMany({
       where: {
         electionId,
@@ -1263,10 +1355,14 @@ export class ElectionService {
     });
 
     const electionIds = eventVoters.map((ev: EventVoter) => ev.voteId);
-    if (electionIds.length === 0) return [];
 
     return prisma.election.findMany({
-      where: { id: { in: electionIds } },
+      where: {
+        OR: [
+          { id: { in: electionIds } }, // voter eligible
+          { visibility: 'public' },    // tất cả public
+        ],
+      },
     });
   }
 }

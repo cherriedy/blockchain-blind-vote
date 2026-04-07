@@ -9,6 +9,7 @@ import { modPow } from 'bigint-mod-arith';
 import { RsaKeyComponent, VotingRsaPublicKey } from './interfaces';
 import { VotingContextService } from '../context';
 import { prisma } from 'prisma/prisma.service';
+import * as fs from 'fs';
 
 @Injectable()
 export class BlindRsaService {
@@ -37,6 +38,9 @@ export class BlindRsaService {
     // Store n and e as hex strings for easy transmission to clients.
     this.nHex = n.toString(16).padStart(size / 4, '0');
     this.eHex = e.toString(16);
+
+    this.logger.log(`RSA n: 0x${this.nHex}`);
+    this.logger.log(`RSA e: 0x${this.eHex}`);
   }
 
   // ─── Key management ──────────────────────────────────────────────────────────
@@ -58,51 +62,61 @@ export class BlindRsaService {
    * @return {RsaKeyComponent} The RSA key components (n, e, d) and modulus bit length.
    */
   private loadOrGenerateKeyPair(): RsaKeyComponent {
-    const pemEnv = process.env.RSA_BLIND_PRIVATE_KEY;
+    try {
+      // Đọc key từ file
+      const pem = fs.readFileSync('keys/private.pem', 'utf-8');
 
-    if (pemEnv) {
-      try {
-        // If the key is provided via environment variable, it should be in PEM format.
-        // Replace literal \n with actual newlines to reconstruct the PEM format.
-        const pem = pemEnv.replace(/\\n/g, '\n');
+      // Convert sang KeyObject
+      const keyObj: KeyObject = createPrivateKey(pem);
 
-        // Load the private key using Node's crypto module.
-        // This will validate the PEM format and extract the key components.
-        const keyObj: KeyObject = createPrivateKey(pem);
+      // Export sang JWK
+      const jwk = keyObj.export({ format: 'jwk' }) as Record<string, string>;
 
-        // Export the key in JWK format to easily extract n, e, d as base64url strings.
-        const jwk = keyObj.export({ format: 'jwk' }) as Record<string, string>;
-        const nBuf = Buffer.from(jwk.n, 'base64url');
-        return {
-          n: this.base64urlToBigInt(jwk.n),
-          e: this.base64urlToBigInt(jwk.e),
-          d: this.base64urlToBigInt(jwk.d),
-          size: nBuf.length * 8,
-        };
-      } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : String(err);
-        this.logger.error(`Failed to load RSA_BLIND_PRIVATE_KEY: ${msg}`);
-        throw new InternalServerErrorException(
-          'There was an error handing your request. Please contact the administrator.',
-        );
+      const nBuf = Buffer.from(jwk.n, 'base64url');
+
+      return {
+        n: this.base64urlToBigInt(jwk.n),
+        e: this.base64urlToBigInt(jwk.e),
+        d: this.base64urlToBigInt(jwk.d),
+        size: nBuf.length * 8,
+      };
+    } catch (err) {
+      this.logger.warn('⚠️ Không tìm thấy key, đang generate mới...');
+
+      // Generate key mới nếu chưa có
+      const { privateKey, publicKey } = generateKeyPairSync('rsa', {
+        modulusLength: 2048,
+        publicKeyEncoding: {
+          type: 'spki',
+          format: 'pem',
+        },
+        privateKeyEncoding: {
+          type: 'pkcs8',
+          format: 'pem',
+        },
+      });
+
+      // Lưu lại để dùng lần sau
+      if (!fs.existsSync('keys')) {
+        fs.mkdirSync('keys');
       }
+
+      fs.writeFileSync('keys/private.pem', privateKey);
+      fs.writeFileSync('keys/public.pem', publicKey);
+
+      // Convert sang KeyObject
+      const keyObj: KeyObject = createPrivateKey(privateKey);
+      const jwk = keyObj.export({ format: 'jwk' }) as Record<string, string>;
+
+      const nBuf = Buffer.from(jwk.n, 'base64url');
+
+      return {
+        n: this.base64urlToBigInt(jwk.n),
+        e: this.base64urlToBigInt(jwk.e),
+        d: this.base64urlToBigInt(jwk.d),
+        size: nBuf.length * 8,
+      };
     }
-
-    this.logger.warn(
-      `RSA_BLIND_PRIVATE_KEY is not set. Generating an ephemeral 2048-bit RSA key. This key will be lost on restart and is NOT suitable for production.`,
-    );
-    const { privateKey } = generateKeyPairSync('rsa', {
-      modulusLength: 2048,
-      publicExponent: 65537,
-    });
-
-    const jwk = privateKey.export({ format: 'jwk' }) as Record<string, string>;
-    return {
-      n: this.base64urlToBigInt(jwk.n),
-      e: this.base64urlToBigInt(jwk.e),
-      d: this.base64urlToBigInt(jwk.d),
-      size: 2048,
-    };
   }
 
   // ─── Math helpers ─────────────────────────────────────────────────────────────

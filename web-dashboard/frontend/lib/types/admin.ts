@@ -124,6 +124,7 @@ export interface VoterFormData {
   studentId: string;
   walletAddress: string;
   name: string;
+  email: string;
 }
 
 export interface CandidateFormData {

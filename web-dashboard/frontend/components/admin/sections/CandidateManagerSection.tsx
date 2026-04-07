@@ -8,6 +8,7 @@ import { PlusIcon } from 'lucide-react';
 import { Candidate } from '@/lib/types/admin';
 import { adminService } from '@/services/admin.service';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { publicApiService } from '@/services/public.service';
 
 interface Props {
   electionId?: string; // edit mode
@@ -40,7 +41,7 @@ export default function CandidateManagerSection({ electionId, form, setForm }: P
 
   const loadElectionCandidates = async (id: string) => {
     try {
-      const res = await adminService.getElectionCandidates(id);
+      const res = await publicApiService.getElectionCandidates(id);
       setAssignedCandidates(res.data.assigned);
       setSelfNominees(res.data.selfNominated);
     } catch {

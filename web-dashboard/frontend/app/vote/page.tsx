@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ethers } from 'ethers';
 import axios from 'axios';
+import { publicApiService } from '@/services/public.service';
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001';
 
@@ -44,9 +45,9 @@ function randomBlindingFactor(n: bigint): bigint {
     bytes[0] |= 0x80; // Ensure top bit set so r ~ n in size
     const r = BigInt(
       '0x' +
-        Array.from(bytes)
-          .map((b) => b.toString(16).padStart(2, '0'))
-          .join(''),
+      Array.from(bytes)
+        .map((b) => b.toString(16).padStart(2, '0'))
+        .join(''),
     );
     const candidate = r % n;
     if (candidate > 1n) {
@@ -135,8 +136,8 @@ function VotePage() {
     try {
       if (type === 'election') {
         const [eventRes, candidatesRes] = await Promise.all([
-          axios.get(`${BACKEND_URL}/api/elections/${id}`),
-          axios.get(`${BACKEND_URL}/api/elections/${id}/candidates`),
+          publicApiService.getElectionById(id),
+          publicApiService.getElectionCandidates(id),
         ]);
         setEvent(eventRes.data);
         const cands = candidatesRes.data ?? { assigned: [], selfNominated: [] };
@@ -144,23 +145,23 @@ function VotePage() {
         // Fetch initial vote counts for all candidates
         const allCands = [...(cands.assigned ?? []), ...(cands.selfNominated ?? [])];
         const counts = await Promise.all(
-          allCands.map((c: any) =>
-            axios
-              .get(`${BACKEND_URL}/api/voting/election/${id}/votes/${c.id}`)
-              .then((r: any) => [c.id, Number(r.data.count)])
-              .catch(() => [c.id, 0]),
-          ),
+          allCands.map((cand: any) =>
+            publicApiService
+              .getElectionCandidateVotes(id, cand.id)
+              .then((res: any) => [cand.id, Number(res.data.count)])
+              .catch(() => [cand.id, 0])
+          )
         );
+
         setCandidateVotes(Object.fromEntries(counts));
       } else {
-        const res = await axios.get(`${BACKEND_URL}/api/polls/${id}`);
+        const res = await publicApiService.getPollById(id);
         setEvent(res.data);
         // Fetch initial vote counts for all options
         const opts = res.data.options ?? [];
         const counts = await Promise.all(
           opts.map((_: any, idx: number) =>
-            axios
-              .get(`${BACKEND_URL}/api/voting/poll/${id}/votes/${idx}`)
+            publicApiService.getPollOptionVotes(id, idx)
               .then((r: any) => [idx, Number(r.data.count)])
               .catch(() => [idx, 0]),
           ),
@@ -469,11 +470,10 @@ function VotePage() {
                   {isElection ? 'Cuộc bầu cử' : 'Khảo sát'}
                 </span>
                 <span
-                  className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest border ${
-                    isActive
+                  className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest border ${isActive
                       ? 'bg-green-50 text-green-700 border-green-200'
                       : 'bg-slate-100 text-slate-500 border-slate-200'
-                  }`}
+                    }`}
                 >
                   {event.status}
                 </span>
@@ -623,19 +623,17 @@ function VotePage() {
                                   <button
                                     key={c.id}
                                     onClick={() => setSelectedCandidateId(c.id)}
-                                    className={`w-full text-left p-5 rounded-2xl border-2 transition-all ${
-                                      selectedCandidateId === c.id
+                                    className={`w-full text-left p-5 rounded-2xl border-2 transition-all ${selectedCandidateId === c.id
                                         ? 'border-blue-600 bg-blue-50 shadow-lg shadow-blue-100'
                                         : 'border-slate-100 bg-slate-50 hover:border-blue-300'
-                                    }`}
+                                      }`}
                                   >
                                     <div className="flex items-center gap-4">
                                       <div
-                                        className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${
-                                          selectedCandidateId === c.id
+                                        className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${selectedCandidateId === c.id
                                             ? 'border-blue-600 bg-blue-600'
                                             : 'border-slate-300'
-                                        }`}
+                                          }`}
                                       >
                                         {selectedCandidateId === c.id && (
                                           <div className="w-2 h-2 bg-white rounded-full"></div>
@@ -692,19 +690,17 @@ function VotePage() {
                                 <button
                                   key={idx}
                                   onClick={() => setSelectedOptionIndex(idx)}
-                                  className={`w-full text-left p-5 rounded-2xl border-2 transition-all ${
-                                    selectedOptionIndex === idx
+                                  className={`w-full text-left p-5 rounded-2xl border-2 transition-all ${selectedOptionIndex === idx
                                       ? 'border-indigo-600 bg-indigo-50 shadow-lg shadow-indigo-100'
                                       : 'border-slate-100 bg-slate-50 hover:border-indigo-300'
-                                  }`}
+                                    }`}
                                 >
                                   <div className="flex items-center gap-4">
                                     <div
-                                      className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${
-                                        selectedOptionIndex === idx
+                                      className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${selectedOptionIndex === idx
                                           ? 'border-indigo-600 bg-indigo-600'
                                           : 'border-slate-300'
-                                      }`}
+                                        }`}
                                     >
                                       {selectedOptionIndex === idx && (
                                         <div className="w-2 h-2 bg-white rounded-full"></div>

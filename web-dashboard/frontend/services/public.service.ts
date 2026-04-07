@@ -35,4 +35,12 @@ export const publicApiService = {
     publicApi.get('/elections/public', {
       params: { walletAddress, studentId },
     }),
+
+  getVoterById: (id: string) => publicApi.get(`/voters/${id}`),
+  getElectionById: (id: string) => publicApi.get(`/elections/${id}`),
+  getPollById: (id: string) => publicApi.get(`/polls/${id}`),
+  getElectionCandidateVotes: (electionId: string, candidateId: string) =>
+    publicApi.get(`/voting/election/${electionId}/votes/${candidateId}`),
+  getPollOptionVotes: (pollId: string, optionIndex: number) =>
+    publicApi.get(`/voting/poll/${pollId}/votes/${optionIndex}`),
 };

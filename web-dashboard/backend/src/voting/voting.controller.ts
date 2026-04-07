@@ -18,8 +18,10 @@ import {
   toBlindSignatureResponseDto,
 } from './blind-signature';
 import { BlindRsaService } from './blind-signature';
+import { Public } from 'src/shared';
 
 @ApiTags('Voting')
+@Public()
 @Controller('voting')
 export class VotingController {
   constructor(

@@ -37,6 +37,7 @@ export default function VotersManager({ role }: ManagerProps) {
     studentId: '',
     walletAddress: '',
     name: '',
+    email: '',
   });
 
   const handleCreate = async () => {
@@ -50,10 +51,11 @@ export default function VotersManager({ role }: ManagerProps) {
         studentId: form.studentId,
         walletAddress: form.walletAddress,
         name: form.name,
+        email: form.email,
       });
       showMessage('Tạo thành công.', 'success');
 
-      setForm({ studentId: '', walletAddress: '', name: '' });
+      setForm({ studentId: '', walletAddress: '', name: '' , email: ''});
       setShowCreate(false);
       await fetchVoters();
     } catch (err: any) {
@@ -183,6 +185,15 @@ export default function VotersManager({ role }: ManagerProps) {
             onChange={(e) => setForm({ ...form, name: e.target.value })}
             className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
           />
+          
+          <input
+            type="text"
+            placeholder="Email"
+            value={form.email}
+            onChange={(e) => setForm({ ...form, email: e.target.value })}
+            className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+          />
+
           <input
             type="text"
             placeholder="Địa chỉ ví (0x...)"

@@ -68,7 +68,7 @@ import { toAuditLogResponseDto } from 'src/entities/audit-log/dto/log.mapper';
 @Controller('elections')
 @UseGuards(ElectionPermissionGuard)
 export class ElectionController {
-  constructor(private readonly electionService: ElectionService) {}
+  constructor(private readonly electionService: ElectionService) { }
 
   // ────────────────────────────────
   // Public Voter Endpoints
@@ -131,29 +131,9 @@ export class ElectionController {
     return result.map(toSelfNominationResponseDto);
   }
 
-  @Get('public')
-  @Public()
-  @ApiOperation({ summary: 'Get all public elections (public)' })
-  @ApiResponse({
-    status: 200,
-    description: 'List of public elections.',
-    type: ElectionResponseDto,
-    isArray: true,
-  })
-  async getPublicElections(
-    @Query('walletAddress') walletAddress: string,
-    @Query('studentId') studentId: string,
-  ): Promise<ElectionResponseDto[]> {
-    const elections = await this.electionService.getPublicElections(
-      walletAddress,
-      studentId,
-    );
-    return toElectionResponseDtos(elections);
-  }
-
   // GET: /self-nominees
   @Get('/self-nominees')
-  @Roles(AdminRole.SUPER_ADMIN)
+  @Roles(AdminRole.SUPER_ADMIN, AdminRole.ELECTION_ADMIN)
   @ApiOperation({ summary: 'Get all self-nominations' })
   @ApiResponse({
     status: 200,
@@ -161,10 +141,12 @@ export class ElectionController {
     type: [SelfNominationResponseDto],
   })
   async getAllSelfNominees(
+    @Request() req: any,
     @Query('status') status?: SelfNominationStatus,
     @Query('search') search?: string,
   ): Promise<SelfNominationResponseDto[]> {
     const data = await this.electionService.getAllSelfNominations(
+      req.admin,
       status,
       search,
     );
@@ -214,8 +196,9 @@ export class ElectionController {
 
   // GET: /elections/:id
   @Get(':id')
-  @Roles(AdminRole.SUPER_ADMIN, AdminRole.ELECTION_ADMIN)
-  @ManagedElection()
+  // @Roles(AdminRole.SUPER_ADMIN, AdminRole.ELECTION_ADMIN)
+  @Public()
+  // @ManagedElection()
   @ApiOperation({ summary: 'Get election by ID' })
   @ApiParam({ name: 'id', type: String })
   @ApiResponse({
@@ -287,6 +270,34 @@ export class ElectionController {
   ): Promise<ElectionResponseDto> {
     const election = await this.electionService.delete(param.id);
     return toElectionResponseDto(election);
+  }
+
+  @Patch(':id/start')
+  @Roles(AdminRole.SUPER_ADMIN, AdminRole.ELECTION_ADMIN)
+  @ManagedElection()
+  @ApiOperation({ summary: 'Start an election' })
+  @ApiParam({ name: 'id', type: String })
+  @ApiResponse({
+    status: 200,
+    description: 'Election started.',
+    type: ElectionResponseDto,
+  })
+  startElection(@Param('id') id: string) {
+    return this.electionService.startElection(id);
+  }
+
+  @Patch(':id/end')
+  @Roles(AdminRole.SUPER_ADMIN, AdminRole.ELECTION_ADMIN)
+  @ManagedElection()
+  @ApiOperation({ summary: 'End an election' })
+  @ApiParam({ name: 'id', type: String })
+  @ApiResponse({
+    status: 200,
+    description: 'Election ended.',
+    type: ElectionResponseDto,
+  })
+  endElection(@Param('id') id: string) {
+    return this.electionService.endElection(id);
   }
 
   // ────────────────────────────────
@@ -480,9 +491,11 @@ export class ElectionController {
   })
   async getSelfNominees(
     @Param() param: ElectionIdParamDto,
+    @Request() req: any,
     @Query('status') status?: SelfNominationStatus,
   ): Promise<SelfNominationResponseDto[]> {
     const selfNominations = await this.electionService.getSelfNominations(
+      req.admin,
       param.id,
       status,
     );

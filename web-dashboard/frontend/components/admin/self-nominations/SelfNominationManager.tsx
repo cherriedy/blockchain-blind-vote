@@ -8,7 +8,7 @@ import { ManagerProps, SelfNomination, SelfNominationFilterStatus } from '@/lib/
 import SelfNominationModal from './SelfNominationModal';
 import { useSnackbar } from '@/components/core/SnackbarContext';
 
-export default function SelfNominationManager({ role }: ManagerProps) {
+export default function SelfNominationManager() {
   const { showMessage } = useSnackbar();
   const [data, setData] = useState<SelfNomination[]>([]);
   const [loading, setLoading] = useState(false);

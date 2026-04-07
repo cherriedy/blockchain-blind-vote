@@ -13,11 +13,11 @@ export const adminService = {
 
   // --- Elections ---
   getElections: (search?: string) => api.get('/elections', { params: { search } }),
-  getElectionCandidates: (id: string) => api.get(`/elections/${id}/candidates`),
-  getElectionById: (id: string) => api.get(`/elections/${id}`),
   createElection: (data: any) => api.post('/elections', data),
   updateElection: (id: string, data: any) => api.put(`/elections/${id}`, data),
   deleteElection: (id: string) => api.delete(`/elections/${id}`),
+  startElection: (id: string) => api.patch(`/elections/${id}/start`),
+  endElection: (id: string) => api.patch(`/elections/${id}/end`),
 
   // Quản lý quan hệ Election
   getAllSelfNominees: (status?: string, search?: string) =>
@@ -57,10 +57,11 @@ export const adminService = {
 
   // --- Polls ---
   getPolls: (search?: string) => api.get('/polls', { params: { search } }),
-  getPollById: (id: string) => api.get(`/polls/${id}`),
   createPoll: (data: any) => api.post('/polls', data),
   updatePoll: (id: string, data: any) => api.put(`/polls/${id}`, data),
   deletePoll: (id: string) => api.delete(`/polls/${id}`),
+  startPoll: (id: string) => api.patch(`/polls/${id}/start`),
+  endPoll: (id: string) => api.patch(`/polls/${id}/end`),
 
   // Quản lý quan hệ Poll
   getPollVoters: (id: string) => api.get(`/polls/${id}/voters`),
@@ -77,7 +78,7 @@ export const adminService = {
 
   // --- Voters & Candidates ---
   getVoters: (search?: string) => api.get('/voters', { params: { search } }),
-  getVoterById: (id: string) => api.get(`/voters/${id}`),
+
   createVoter: (data: any) => api.post('/voters', data),
   updateVoter: (id: string, data: any) => api.put(`/voters/${id}`, data),
   deleteVoter: (id: string) => api.delete(`/voters/${id}`),

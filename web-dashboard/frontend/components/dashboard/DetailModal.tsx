@@ -15,7 +15,7 @@ export default function DetailModal({
   onClose: () => void;
 }) {
   const router = useRouter();
-  const [candidates, setCandidates] = useState({ assigned: [], selfNominated: [] });
+  const [candidates, setCandidates] = useState({ assigned: [] as any[], selfNominated: [] as any[] });
   const [candidatesLoading, setCandidatesLoading] = useState(false);
   const [candidatesError, setCandidatesError] = useState('');
   const [showSelfNominateModal, setShowSelfNominateModal] = useState(false);
@@ -24,27 +24,83 @@ export default function DetailModal({
   const isElection = type === 'election';
 
   useEffect(() => {
-    if (!item || !isElection) return;
+    if (!item) return;
 
     let isMounted = true;
-    const fetchCandidates = async () => {
+
+    const fetchData = async () => {
       if (isMounted) setCandidatesLoading(true);
+
       try {
-        const res = await publicApiService.getElectionCandidates(item.id);
+        // ===== ELECTION =====
+        if (isElection) {
+          const res = await publicApiService.getElectionCandidates(item.id);
+
+          const assigned = res.data?.assigned ?? [];
+          const selfNominated = res.data?.selfNominated ?? [];
+
+          const allCandidates = [...assigned, ...selfNominated];
+
+          const voteResponses = await Promise.all(
+            allCandidates.map(c =>{
+              return publicApiService.getElectionCandidateVotes(item.id, c.id);
+            }
+              
+            )
+          );
+
+          const candidatesWithVotes = allCandidates.map((c, index) => ({
+            ...c,
+            voteCount: Number(voteResponses[index].data.count),
+          }));
+
+          const assignedWithVotes = candidatesWithVotes.slice(0, assigned.length);
+          const selfWithVotes = candidatesWithVotes.slice(assigned.length);
+
+          if (isMounted) {
+            setCandidates({
+              assigned: assignedWithVotes,
+              selfNominated: selfWithVotes,
+            });
+          }
+        }
+
+        // ===== POLL =====
+        else {
+          const voteResponses = await Promise.all(
+            item.options.map((_: any, index: number) =>
+              publicApiService.getPollOptionVotes(item.id, index)
+            )
+          );
+
+          const optionsWithVotes = item.options.map((opt: string, index: number) => ({
+            name: opt,
+            voteCount: Number(voteResponses[index].data.count),
+          }));
+
+          if (isMounted) {
+            setCandidates({
+              assigned: optionsWithVotes, // reuse field
+              selfNominated: [],
+            });
+          }
+        }
+
         if (isMounted) {
-          setCandidates(res.data ?? { assigned: [], selfNominated: [] });
           setCandidatesError('');
           setCandidatesLoading(false);
         }
       } catch {
         if (isMounted) {
-          setCandidatesError('Không thể tải danh sách ứng viên.');
+          setCandidatesError('Không thể tải dữ liệu.');
           setCandidates({ assigned: [], selfNominated: [] });
           setCandidatesLoading(false);
         }
       }
     };
-    fetchCandidates();
+
+    fetchData();
+
     return () => {
       isMounted = false;
     };
@@ -52,11 +108,10 @@ export default function DetailModal({
 
   if (!item) return null;
 
-  const totalVotes = isElection
-    ? Object.values(item.votes ?? {}).reduce((a: number, b: any) => a + Number(b), 0)
-    : Array.isArray(item.votes)
-      ? item.votes.reduce((a: number, b: any) => a + Number(b), 0)
-      : 0;
+  const totalVotes = [
+    ...candidates.assigned,
+    ...candidates.selfNominated,
+  ].reduce((sum, c) => sum + (c.voteCount || 0), 0);
 
   const handleSelfNominate = async () => {
     try {
@@ -242,7 +297,7 @@ export default function DetailModal({
                 <CandidateList
                   assigned={candidates.assigned ?? []}
                   selfNominated={candidates.selfNominated ?? []}
-                  votes={item.votes ?? {}}
+                  totalVotes={totalVotes}
                   loading={candidatesLoading}
                   error={candidatesError}
                 />
@@ -322,11 +377,10 @@ export default function DetailModal({
                 onClose();
                 router.push(`/vote?voteType=${isElection ? 'election' : 'poll'}&voteId=${item.id}`);
               }}
-              className={`shrink-0 px-5 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest text-white transition-all active:scale-95 shadow-lg ${
-                isElection
-                  ? 'bg-blue-600 hover:bg-blue-700 shadow-blue-900/20'
-                  : 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-900/20'
-              }`}
+              className={`shrink-0 px-5 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest text-white transition-all active:scale-95 shadow-lg ${isElection
+                ? 'bg-blue-600 hover:bg-blue-700 shadow-blue-900/20'
+                : 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-900/20'
+                }`}
             >
               Bỏ phiếu ngay →
             </button>

@@ -6,6 +6,7 @@ import {
   HttpCode,
   HttpStatus,
   Param,
+  Patch,
   Post,
   Put,
   Query,
@@ -51,7 +52,7 @@ import { AdminRole } from '@prisma/client';
 @Controller('polls')
 @UseGuards(PollPermissionGuard)
 export class PollController {
-  constructor(private readonly pollService: PollService) {}
+  constructor(private readonly pollService: PollService) { }
 
   // ────────────────────────────────
   // Public Voter Endpoints
@@ -90,7 +91,6 @@ export class PollController {
 
   @Get()
   @Roles(AdminRole.SUPER_ADMIN, AdminRole.POLL_ADMIN)
-  @ManagedPoll()
   @ApiOperation({ summary: 'Get all polls' })
   @ApiResponse({
     status: 200,
@@ -107,8 +107,9 @@ export class PollController {
   }
 
   @Get(':id')
-  @Roles(AdminRole.SUPER_ADMIN, AdminRole.POLL_ADMIN)
-  @ManagedPoll()
+  // @Roles(AdminRole.SUPER_ADMIN, AdminRole.POLL_ADMIN)
+  // @ManagedPoll()
+  @Public()
   @ApiOperation({ summary: 'Get poll by ID' })
   @ApiParam({ name: 'id', type: String })
   @ApiResponse({
@@ -170,6 +171,34 @@ export class PollController {
   async deletePoll(@Param() param: PollIdParamDto): Promise<PollResponseDto> {
     const poll = await this.pollService.delete(param.id);
     return toPollResponseDto(poll);
+  }
+
+  @Patch(':id/start')
+  @Roles(AdminRole.SUPER_ADMIN, AdminRole.ELECTION_ADMIN)
+  @ManagedPoll() // nếu bạn có decorator riêng
+  @ApiOperation({ summary: 'Start a poll' })
+  @ApiParam({ name: 'id', type: String })
+  @ApiResponse({
+    status: 200,
+    description: 'Poll started.',
+    type: PollResponseDto,
+  })
+  startPoll(@Param('id') id: string) {
+    return this.pollService.startPoll(id);
+  }
+
+  @Patch(':id/end')
+  @Roles(AdminRole.SUPER_ADMIN, AdminRole.ELECTION_ADMIN)
+  @ManagedPoll()
+  @ApiOperation({ summary: 'End a poll' })
+  @ApiParam({ name: 'id', type: String })
+  @ApiResponse({
+    status: 200,
+    description: 'Poll ended.',
+    type: PollResponseDto,
+  })
+  endPoll(@Param('id') id: string) {
+    return this.pollService.endPoll(id);
   }
 
   // ── Voter assignment routes ──────────────────────────────────────────────

@@ -20,7 +20,6 @@ export default function DashboardPage() {
   const [studentId, setStudentId] = useState<string>('');
   const [walletAddress, setWalletAddress] = useState<string>('');
   const [elections, setElections] = useState<Election[]>([]);
-  const [publicElections, setPublicElections] = useState<Election[]>([]);
   const [polls, setPolls] = useState<Poll[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string>('');
@@ -51,20 +50,11 @@ export default function DashboardPage() {
       setStudentId(sid);
       setWalletAddress(wallet);
 
-      const [publicRes, electionsRes, pollsRes, selfNomRes] = await Promise.allSettled([
-        publicApiService.getPublicElection(wallet, sid),
+      const [electionsRes, pollsRes, selfNomRes] = await Promise.allSettled([
         publicApiService.getEligibleElection(wallet, sid),
         publicApiService.getEligiblePoll(wallet, sid),
         publicApiService.getMySelfNominations(wallet, sid),
       ]);
-
-      if (publicRes.status === 'fulfilled') {
-        setPublicElections(publicRes.value.data ?? []);
-      } else {
-        if (publicRes.reason?.response?.status !== 404)
-          console.error('Elections fetch error', publicRes.reason);
-        setPublicElections([]);
-      }
 
       if (electionsRes.status === 'fulfilled') {
         setElections(electionsRes.value.data ?? []);
@@ -88,6 +78,12 @@ export default function DashboardPage() {
           console.error('Self nomination fetch error', selfNomRes.reason);
         setSelfNominations([]);
       }
+
+      console.log({
+        electionsRes,
+        pollsRes,
+        selfNomRes,
+      });
     } catch {
       setError('Không thể kết nối máy chủ. Hãy đảm bảo backend đang chạy.');
     }
@@ -106,7 +102,7 @@ export default function DashboardPage() {
           localStorage.getItem('studentId') || '',
           localStorage.getItem('walletAddress') || '',
         )
-        .catch(() => {});
+        .catch(() => { });
     } catch (e) {
       // ignore errors from logout call, continue to clear client state
       console.warn('logout request failed', e);
@@ -278,34 +274,13 @@ export default function DashboardPage() {
 
         {/* ── Tabs ── */}
         <div className="flex items-center gap-1 bg-white border border-slate-100 rounded-2xl p-1.5 mb-8 w-fit shadow-sm">
-          {/* Bầu cử công khai */}
-          <button
-            onClick={() => setActiveTab('public')}
-            className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
-              activeTab === 'public'
-                ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/20'
-                : 'text-slate-400 hover:text-slate-600'
-            }`}
-          >
-            <HowToVoteIcon sx={{ fontSize: 16 }} />
-            Bầu cử công khai
-            {publicElections.length > 0 && (
-              <span
-                className={`px-1.5 py-0.5 rounded-full text-[9px] ${activeTab === 'public' ? 'bg-white/20' : 'bg-slate-100 text-slate-500'}`}
-              >
-                {publicElections.length}
-              </span>
-            )}
-          </button>
-
           {/* Bầu cử */}
           <button
             onClick={() => setActiveTab('elections')}
-            className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
-              activeTab === 'elections'
+            className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'elections'
                 ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/20'
                 : 'text-slate-400 hover:text-slate-600'
-            }`}
+              }`}
           >
             <HowToVoteIcon sx={{ fontSize: 16 }} />
             Bầu cử
@@ -321,11 +296,10 @@ export default function DashboardPage() {
           {/* Khảo sát */}
           <button
             onClick={() => setActiveTab('polls')}
-            className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
-              activeTab === 'polls'
+            className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'polls'
                 ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/20'
                 : 'text-slate-400 hover:text-slate-600'
-            }`}
+              }`}
           >
             <PollIcon sx={{ fontSize: 16 }} />
             Khảo sát
@@ -341,19 +315,17 @@ export default function DashboardPage() {
           {/* Tự ứng cử */}
           <button
             onClick={() => setActiveTab('self-nominations')}
-            className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
-              activeTab === 'self-nominations'
+            className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'self-nominations'
                 ? 'bg-purple-600 text-white shadow-lg shadow-purple-900/20'
                 : 'text-slate-400 hover:text-slate-600'
-            }`}
+              }`}
           >
             <HowToVoteIcon sx={{ fontSize: 16 }} />
             Tự ứng cử
             {selfNominations.length > 0 && (
               <span
-                className={`px-1.5 py-0.5 rounded-full text-[9px] ${
-                  activeTab === 'self-nominations' ? 'bg-white/20' : 'bg-slate-100 text-slate-500'
-                }`}
+                className={`px-1.5 py-0.5 rounded-full text-[9px] ${activeTab === 'self-nominations' ? 'bg-white/20' : 'bg-slate-100 text-slate-500'
+                  }`}
               >
                 {selfNominations.length}
               </span>
@@ -404,20 +376,6 @@ export default function DashboardPage() {
               </div>
             ))}
           </div>
-        ) : activeTab === 'public' ? (
-          publicElections.length === 0 ? (
-            <EmptyState type="election" />
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-              {publicElections.map((e: any) => (
-                <ElectionCard
-                  key={e.id}
-                  election={e}
-                  onClick={(item) => openDetail(item, 'election')}
-                />
-              ))}
-            </div>
-          )
         ) : activeTab === 'elections' ? (
           elections.length === 0 ? (
             <EmptyState type="election" />
@@ -432,7 +390,7 @@ export default function DashboardPage() {
               ))}
             </div>
           )
-        ) : activeTab === 'poll' ? (
+        ) : activeTab === 'polls' ? (
           polls.length === 0 ? (
             <EmptyState type="poll" />
           ) : (
@@ -442,61 +400,64 @@ export default function DashboardPage() {
               ))}
             </div>
           )
-        ) : selfNominations.length === 0 ? (
-          <EmptyState type="election" />
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-            {selfNominations.map((item: any) => (
-              <div
-                key={item.id}
-                className="bg-white border border-slate-100 rounded-3xl p-5 shadow-sm hover:shadow-md transition"
-              >
-                {/* Election */}
-                <h3 className="font-bold text-sm mb-2">{item.election?.name}</h3>
+        ) :
+          selfNominations.length === 0 ? (
+            <EmptyState type="election" />
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+              {selfNominations.map((item: any) => (
+                <div
+                  key={item.id}
+                  className="bg-white border border-slate-100 rounded-3xl p-5 shadow-sm hover:shadow-md transition"
+                >
+                  {/* Election */}
+                  <h3 className="font-bold text-sm mb-2">{item.election?.name}</h3>
 
-                {/* Status */}
-                <p className="text-xs mb-1">
-                  Trạng thái: <b>{item.status}</b>
-                </p>
+                  {/* Status */}
+                  <p className="text-xs mb-1">
+                    Trạng thái: <b>{item.status}</b>
+                  </p>
 
-                {/* Intro */}
-                <p className="text-xs text-slate-500 line-clamp-2 mb-2">
-                  {item.introduction || 'Không có mô tả'}
-                </p>
+                  {/* Intro */}
+                  <p className="text-xs text-slate-500 line-clamp-2 mb-2">
+                    {item.introduction || 'Không có mô tả'}
+                  </p>
 
-                {/* Admin note */}
-                {item.adminNotes && <p className="text-xs text-red-500 mb-2">{item.adminNotes}</p>}
+                  {/* Admin note */}
+                  {item.adminNotes && <p className="text-xs text-red-500 mb-2">{item.adminNotes}</p>}
 
-                {/* Time */}
-                <p className="text-[10px] text-slate-400 mb-3">
-                  {new Date(item.createdAt).toLocaleString('vi-VN')}
-                </p>
+                  {/* Time */}
+                  <p className="text-[10px] text-slate-400 mb-3">
+                    {new Date(item.createdAt).toLocaleString('vi-VN')}
+                  </p>
 
-                {/* Action */}
-                {item.status === 'REQUEST_INFO' && (
-                  <button
-                    onClick={() => handleResubmit(item)}
-                    className="w-full py-1.5 text-xs font-bold bg-orange-500 text-white rounded-lg hover:bg-orange-600"
-                  >
-                    Gửi lại
-                  </button>
-                )}
+                  {/* Action */}
+                  {item.status === 'REQUEST_INFO' && (
+                    <button
+                      onClick={() => handleResubmit(item)}
+                      className="w-full py-1.5 text-xs font-bold bg-orange-500 text-white rounded-lg hover:bg-orange-600"
+                    >
+                      Gửi lại
+                    </button>
+                  )}
 
-                {item.status === 'PENDING' && (
-                  <span className="text-xs text-yellow-600 font-bold">Đang chờ duyệt</span>
-                )}
+                  {item.status === 'PENDING' && (
+                    <span className="text-xs text-yellow-600 font-bold">Đang chờ duyệt</span>
+                  )}
 
-                {item.status === 'APPROVED' && (
-                  <span className="text-xs text-green-600 font-bold">Đã duyệt</span>
-                )}
+                  {item.status === 'APPROVED' && (
+                    <span className="text-xs text-green-600 font-bold">Đã duyệt</span>
+                  )}
 
-                {item.status === 'REJECTED' && (
-                  <span className="text-xs text-red-600 font-bold">Bị từ chối</span>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
+                  {item.status === 'REJECTED' && (
+                    <span className="text-xs text-red-600 font-bold">Bị từ chối</span>
+                  )}
+                </div>
+              ))}
+            </div>
+
+          )
+        }
       </main>
 
       {selectedItem && (

@@ -15,7 +15,7 @@ export class PollService {
   constructor(
     private readonly eventVoterService: EventVoterService,
     private readonly votingContextService: VotingContextService,
-  ) {}
+  ) { }
 
   /**
    * Get all polls, optionally filtered by visibility.
@@ -115,6 +115,63 @@ export class PollService {
       },
     });
     return !!assignment;
+  }
+
+  async startPoll(id: string) {
+    const poll = await prisma.poll.findUnique({
+      where: { id },
+    });
+
+    if (!poll) {
+      throw new NotFoundException('Không tìm thấy poll');
+    }
+
+    if (poll.isAutomatic) {
+      throw new BadRequestException('Poll tự động không thể bắt đầu thủ công');
+    }
+
+    if (poll.status !== 'pending') {
+      throw new BadRequestException('Chỉ có thể bắt đầu khi đang ở trạng thái pending');
+    }
+
+    // (optional) check có option chưa
+    if (!poll.options || poll.options.length === 0) {
+      throw new BadRequestException('Poll chưa có lựa chọn');
+    }
+
+    return prisma.poll.update({
+      where: { id },
+      data: {
+        status: 'active',
+        startAt: Date.now(),
+      },
+    });
+  }
+
+  async endPoll(id: string) {
+    const poll = await prisma.poll.findUnique({
+      where: { id },
+    });
+
+    if (!poll) {
+      throw new NotFoundException('Không tìm thấy poll');
+    }
+
+    if (poll.isAutomatic) {
+      throw new BadRequestException('Poll tự động không thể kết thúc thủ công');
+    }
+
+    if (poll.status !== 'active') {
+      throw new BadRequestException('Chỉ có thể kết thúc khi đang diễn ra');
+    }
+
+    return prisma.poll.update({
+      where: { id },
+      data: {
+        status: 'completed',
+        endAt: Date.now(),
+      },
+    });
   }
 
   // List admins
@@ -437,10 +494,10 @@ export class PollService {
           details: {
             voter: voter
               ? {
-                  id: voter.id,
-                  name: voter.name,
-                  email: voter.email,
-                }
+                id: voter.id,
+                name: voter.name,
+                email: voter.email,
+              }
               : { id: voterId, name: 'Unknown' }, // fallback
           },
         },
@@ -479,10 +536,14 @@ export class PollService {
     });
 
     const pollIds = eventVoters.map((ev: EventVoter) => ev.voteId);
-    if (pollIds.length === 0) return [];
 
     return prisma.poll.findMany({
-      where: { id: { in: pollIds } },
+      where: {
+        OR: [
+          { id: { in: pollIds } }, // voter eligible
+          { visibility: 'public' },    // tất cả public
+        ],
+      },
     });
   }
 }

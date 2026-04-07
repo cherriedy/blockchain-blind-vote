@@ -39,6 +39,11 @@ async function bootstrap() {
     prefix: '/uploads/',
   });
 
+  app.enableCors({
+    origin: 'http://localhost:3000',
+    credentials: true, // nếu có cookie/token
+  });
+
   await app.listen(process.env.PORT ?? 5000);
 }
 void bootstrap();
